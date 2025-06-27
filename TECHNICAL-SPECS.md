@@ -84,9 +84,6 @@ def finalize_petition():
     assert Global.Round > App.global_get("petition_end_round")
     assert not App.global_get("petition_finalized")
     
-    # Re-verify all opted-in accounts
-    valid_signatures = recount_valid_signatures()
-    
     # Update petition_asa with final count via asset config
     update_petition_asa_total(valid_signatures)
     
@@ -100,26 +97,12 @@ def finalize_petition():
     send_finalizer_reward(Txn.sender)
 ```
 
-### 5. Signature Recount Logic
-```python
-def recount_valid_signatures():
-    # Iterate through all petition_asa opt-ins
-    # Re-verify each account against current eligibility flags
-    # Return count of valid signatures
-    valid_count = 0
-    for opted_in_account in get_opted_in_accounts():
-        if verify_eligibility_silent(opted_in_account):
-            valid_count += 1
-    return valid_count
-```
-
 ## Technical Specifications
 
 ### Contract Requirements
 - **Global State**: 6 uint64 slots, 2 byte slices
 - **Box Storage**: Single box for petition text (key: "petition_text")
 - **Inner Transactions**: ASA creation, asset config, payment
-- **Account Iteration**: Enumerate petition_asa holders for recount
 
 ### Eligibility Flag Encoding
 - Pack multiple flags into global state efficiently
@@ -135,7 +118,6 @@ def recount_valid_signatures():
 
 ### Sybil Resistance
 - Current-state verification prevents gaming at finalization
-- No historical data dependencies eliminate timing attacks
 - Re-verification ensures eligibility at petition conclusion
 
 ### Economic Security
@@ -152,7 +134,6 @@ def recount_valid_signatures():
 
 ### Real-time Verification
 - Frontend pre-checks eligibility before transaction submission
-- Contract enforces final verification on-chain
 - Clear feedback for ineligible users
 
 ### Petition Discovery
