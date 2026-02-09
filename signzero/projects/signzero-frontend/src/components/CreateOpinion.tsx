@@ -113,7 +113,7 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
   if (!activeAddress) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-400">Please connect your wallet to create an opinion.</p>
+        <p className="text-[var(--text-secondary)]">Please connect your wallet to create an opinion.</p>
       </div>
     )
   }
@@ -121,7 +121,7 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
   return (
     <div className="max-w-2xl mx-auto">
       <h1 className="text-3xl font-bold mb-2">Create Opinion</h1>
-      <p className="text-gray-400 mb-8">
+      <p className="text-[var(--text-secondary)] mb-8">
         Start a new opinion. Requires 20 ALGO funding to cover contract costs.
       </p>
 
@@ -131,7 +131,7 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
-            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-emerald-500"
+            className="w-full px-4 py-3 bg-[var(--bg-surface)] border border-[var(--border)] focus:outline-none focus:border-[var(--accent-green)]"
           >
             {OPINION_TYPES.map((type) => (
               <option key={type} value={type}>
@@ -147,7 +147,7 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
               placeholder="Enter custom type (max 32 characters)"
               maxLength={32}
               required
-              className="w-full mt-2 px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-emerald-500"
+              className="w-full mt-2 px-4 py-3 bg-[var(--bg-surface)] border border-[var(--border)] focus:outline-none focus:border-[var(--accent-green)]"
             />
           )}
         </div>
@@ -161,9 +161,9 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
             placeholder="Enter title (max 32 characters)"
             maxLength={32}
             required
-            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-emerald-500"
+            className="w-full px-4 py-3 bg-[var(--bg-surface)] border border-[var(--border)] focus:outline-none focus:border-[var(--accent-green)]"
           />
-          <p className={`text-xs mt-1 ${32 - title.length <= 5 ? 'text-yellow-500' : 'text-gray-500'}`}>
+          <p className={`text-xs mt-1 ${32 - title.length <= 5 ? 'text-[var(--accent-yellow)]' : 'text-[var(--text-secondary)]'}`}>
             {32 - title.length} characters remaining
           </p>
         </div>
@@ -177,9 +177,9 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
             rows={6}
             maxLength={2000}
             required
-            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-emerald-500 resize-none"
+            className="w-full px-4 py-3 bg-[var(--bg-surface)] border border-[var(--border)] focus:outline-none focus:border-[var(--accent-green)] resize-none"
           />
-          <p className={`text-xs mt-1 ${2000 - text.length <= 100 ? 'text-yellow-500' : 'text-gray-500'}`}>
+          <p className={`text-xs mt-1 ${2000 - text.length <= 100 ? 'text-[var(--accent-yellow)]' : 'text-[var(--text-secondary)]'}`}>
             {2000 - text.length} characters remaining
           </p>
         </div>
@@ -192,9 +192,9 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://your-website.com"
             maxLength={96}
-            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-emerald-500"
+            className="w-full px-4 py-3 bg-[var(--bg-surface)] border border-[var(--border)] focus:outline-none focus:border-[var(--accent-green)]"
           />
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-[var(--text-secondary)] mt-1">
             Optional website or reference link (max 96 characters)
           </p>
         </div>
@@ -208,17 +208,17 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
             min={1}
             max={365}
             required
-            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-emerald-500"
+            className="w-full px-4 py-3 bg-[var(--bg-surface)] border border-[var(--border)] focus:outline-none focus:border-[var(--accent-green)]"
           />
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-[var(--text-secondary)] mt-1">
             Opinion will be active for {durationDays} day{durationDays > 1 ? 's' : ''} (~
             {Math.floor((durationDays * 24 * 60 * 60) / 3.3).toLocaleString()} rounds)
           </p>
         </div>
 
-        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
+        <div className="bg-[var(--bg-card)] border border-[var(--border)] p-4">
           <h3 className="font-medium mb-2">Cost Summary</h3>
-          <div className="space-y-1 text-sm text-gray-400">
+          <div className="space-y-1 text-sm text-[var(--text-secondary)]">
             <div className="flex justify-between">
               <span>Opinion funding</span>
               <span>20 ALGO</span>
@@ -227,7 +227,7 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
               <span>Transaction fees</span>
               <span>~0.003 ALGO</span>
             </div>
-            <div className="flex justify-between pt-2 border-t border-gray-700 text-white">
+            <div className="flex justify-between pt-2 border-t border-[var(--border)] text-[var(--text-primary)]">
               <span>Total</span>
               <span>~20.003 ALGO</span>
             </div>
@@ -235,7 +235,7 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
         </div>
 
         {error && (
-          <div className="bg-red-900/30 border border-red-700 rounded-lg p-4 text-red-400">
+          <div className="bg-[var(--bg-surface)] border border-[var(--accent-red)] p-4 text-[var(--accent-red)]">
             {error}
           </div>
         )}
@@ -243,7 +243,7 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
         <button
           type="submit"
           disabled={loading || !title || !text || (selectedType === 'Other' && !customType.trim())}
-          className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-lg font-medium text-lg transition-colors"
+          className="w-full py-4 bg-[var(--bg-accent)] text-[var(--text-inverse)] hover:bg-[var(--accent-green)] disabled:bg-[var(--bg-disabled)] disabled:text-[var(--text-secondary)] disabled:cursor-not-allowed font-medium text-lg transition-colors"
         >
           {loading ? 'Creating Opinion...' : 'Create Opinion (20 ALGO)'}
         </button>

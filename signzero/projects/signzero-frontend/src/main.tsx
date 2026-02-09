@@ -9,12 +9,12 @@ import {
   WalletId,
   NetworkId,
 } from '@txnlab/use-wallet'
+import { ThemeProvider } from './ThemeContext'
 import './index.css'
 import App from './App'
 
 const networkId = (import.meta.env.VITE_NETWORK || 'localnet') as string
 
-// Map our network names to use-wallet NetworkId
 const getNetworkId = (): NetworkId => {
   switch (networkId) {
     case 'testnet':
@@ -30,15 +30,17 @@ const walletManager = new WalletManager({
   wallets: [
     WalletId.DEFLY,
     WalletId.PERA,
-    ...(networkId === 'localnet' ? [WalletId.KMD] : []),
+    WalletId.KMD,
   ],
   defaultNetwork: getNetworkId(),
 })
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <WalletProvider manager={walletManager}>
-      <App />
-    </WalletProvider>
+    <ThemeProvider>
+      <WalletProvider manager={walletManager}>
+        <App />
+      </WalletProvider>
+    </ThemeProvider>
   </StrictMode>
 )

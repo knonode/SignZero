@@ -4,9 +4,87 @@
   font-family: system-ui, -apple-system, sans-serif;
 }
 
+[data-theme="dark"] {
+  --bg-primary: #000;
+  --bg-header: rgba(0, 0, 0, 0.9);
+  --bg-card: rgba(0, 0, 0, 0.8);
+  --bg-surface: #000;
+  --bg-overlay: rgba(0, 0, 0, 0.8);
+  --bg-subtle: rgba(255, 255, 255, 0.05);
+  --bg-hover: rgba(255, 255, 255, 0.1);
+  --bg-hover-strong: rgba(255, 255, 255, 0.2);
+  --bg-accent: #fff;
+  --bg-accent-hover: #00ff41;
+  --bg-disabled: #333;
+  --text-primary: #fff;
+  --text-secondary: #888;
+  --text-muted: #666;
+  --text-inverse: #000;
+  --text-content: rgba(255, 255, 255, 0.8);
+  --border: #333;
+  --border-active: #fff;
+  --accent-green: #00ff41;
+  --accent-cyan: #00ffff;
+  --accent-yellow: #ffff00;
+  --accent-red: #ff3333;
+  --accent-blue: #5599ff;
+  --accent-magenta: #ff55ff;
+  --scrollbar-track: #000;
+  --scrollbar-thumb: #333;
+  --bg-image: url('/sign-zero-dark-bkg.png');
+}
+
+[data-theme="light"] {
+  --bg-primary: #f5f5f5;
+  --bg-header: rgba(255, 255, 255, 0.95);
+  --bg-card: rgba(255, 255, 255, 0.85);
+  --bg-surface: #fff;
+  --bg-overlay: rgba(0, 0, 0, 0.4);
+  --bg-subtle: rgba(0, 0, 0, 0.03);
+  --bg-hover: rgba(0, 0, 0, 0.06);
+  --bg-hover-strong: rgba(0, 0, 0, 0.12);
+  --bg-accent: #1a1a2e;
+  --bg-accent-hover: #00882a;
+  --bg-disabled: #ccc;
+  --text-primary: #1a1a2e;
+  --text-secondary: #666;
+  --text-muted: #999;
+  --text-inverse: #fff;
+  --text-content: rgba(0, 0, 0, 0.75);
+  --border: #ddd;
+  --border-active: #1a1a2e;
+  --accent-green: #00882a;
+  --accent-cyan: #0077aa;
+  --accent-yellow: #aa7700;
+  --accent-red: #cc2222;
+  --accent-blue: #2255bb;
+  --accent-magenta: #aa33aa;
+  --scrollbar-track: #f5f5f5;
+  --scrollbar-thumb: #ccc;
+  --bg-image: url('/sign-zero-light-bkg.png');
+}
+
 body {
-  background-color: #111827;
-  color: #f3f4f6;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   min-height: 100vh;
   margin: 0;
+  background-image: var(--bg-image);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
 }

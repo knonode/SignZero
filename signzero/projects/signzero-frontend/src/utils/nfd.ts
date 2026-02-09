@@ -99,6 +99,23 @@ export async function batchLookupNFD(
   return results
 }
 
+/**
+ * Resolve an NFD name (e.g. "alice.algo") to an Algorand address.
+ * Returns the deposit address or owner address, or null if not found.
+ */
+export async function resolveNFDName(name: string): Promise<string | null> {
+  try {
+    const response = await fetch(
+      `${NFD_API_URL}/nfd/${encodeURIComponent(name)}?view=tiny`
+    )
+    if (!response.ok) return null
+    const data = await response.json()
+    return data.depositAccount || data.owner || null
+  } catch {
+    return null
+  }
+}
+
 export function truncateAddress(address: string, chars = 4): string {
   if (!address) return ''
   return `${address.slice(0, chars)}...${address.slice(-chars)}`
