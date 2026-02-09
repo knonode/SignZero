@@ -3,6 +3,13 @@ import { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import { SignZeroFactory, SignZeroClient } from '../artifacts/sign_zero/SignZeroClient'
 import { microAlgo } from '@algorandfoundation/algokit-utils'
 
+// Helper to create a 32-byte padded opinion type
+function makeOpinionType(type: string): Uint8Array {
+  const buf = new Uint8Array(32)
+  new TextEncoder().encodeInto(type, buf)
+  return buf
+}
+
 describe('SignZero e2e tests', () => {
   let algorand: AlgorandClient
   let dispenser: Awaited<ReturnType<typeof algorand.account.localNetDispenser>>
@@ -12,6 +19,8 @@ describe('SignZero e2e tests', () => {
     'We the undersigned call for immediate climate action to protect our planet for future generations.'
   )
   const duration = 25000n
+  const opinionType = makeOpinionType('Petition')
+  const url = 'https://example.com'
 
   beforeAll(async () => {
     algorand = AlgorandClient.fromEnvironment()
@@ -51,8 +60,8 @@ describe('SignZero e2e tests', () => {
     })
   })
 
-  describe('Petition initialization', () => {
-    it('should initialize petition with valid parameters', async () => {
+  describe('Opinion initialization', () => {
+    it('should initialize opinion with valid parameters', async () => {
       const { deployer, factory } = await createFundedAccounts()
       const { appClient } = await factory.send.create.createApplication({ args: {} })
 
@@ -65,8 +74,8 @@ describe('SignZero e2e tests', () => {
             amount: (20).algo(),
           })
         )
-        .initializePetition({
-          args: { title, text, duration },
+        .initialize({
+          args: { title, text, duration, opinionType, url },
           extraFee: microAlgo(1000),
         })
         .send()
@@ -75,11 +84,11 @@ describe('SignZero e2e tests', () => {
       expect(asaId).toBeDefined()
       expect(asaId).toBeGreaterThan(0n)
 
-      // Verify state (booleans come back as 1n/0n from global state)
+      // Verify state
       const state = await appClient.state.global.getAll()
-      expect(state.petitionInitialized).toBe(1n)
-      expect(state.petitionFinalized).toBe(0n)
-      expect(state.petitionAsaId).toBe(asaId)
+      expect(state.initialized).toBe(1n)
+      expect(state.finalized).toBe(0n)
+      expect(state.asaId).toBe(asaId)
     })
 
     it('should fail with insufficient funding', async () => {
@@ -96,8 +105,8 @@ describe('SignZero e2e tests', () => {
               amount: (10).algo(), // Less than 20 ALGO minimum
             })
           )
-          .initializePetition({
-            args: { title, text, duration },
+          .initialize({
+            args: { title, text, duration, opinionType, url },
             extraFee: microAlgo(1000),
           })
           .send()
@@ -118,8 +127,8 @@ describe('SignZero e2e tests', () => {
               amount: (20).algo(),
             })
           )
-          .initializePetition({
-            args: { title, text, duration: 10000n }, // Less than 25,000 minimum
+          .initialize({
+            args: { title, text, duration: 10000n, opinionType, url }, // Less than 25,000 minimum
             extraFee: microAlgo(1000),
           })
           .send()
@@ -140,8 +149,8 @@ describe('SignZero e2e tests', () => {
             amount: (20).algo(),
           })
         )
-        .initializePetition({
-          args: { title, text, duration },
+        .initialize({
+          args: { title, text, duration, opinionType, url },
           extraFee: microAlgo(1000),
         })
         .send()
@@ -157,16 +166,113 @@ describe('SignZero e2e tests', () => {
               amount: (20).algo(),
             })
           )
-          .initializePetition({
-            args: { title, text, duration },
+          .initialize({
+            args: { title, text, duration, opinionType, url },
             extraFee: microAlgo(1000),
           })
           .send()
       ).rejects.toThrow()
     })
+
+    it('should reject opinion type that is too long (>32 bytes)', async () => {
+      const { deployer, factory } = await createFundedAccounts()
+      const { appClient } = await factory.send.create.createApplication({ args: {} })
+
+      // 33 bytes - too long
+      const longType = new Uint8Array(33).fill(65) // 'AAA...'
+
+      await expect(
+        appClient
+          .newGroup()
+          .addTransaction(
+            await algorand.createTransaction.payment({
+              sender: deployer.addr,
+              receiver: appClient.appAddress,
+              amount: (20).algo(),
+            })
+          )
+          .initialize({
+            args: { title, text, duration, opinionType: longType, url },
+            extraFee: microAlgo(1000),
+          })
+          .send()
+      ).rejects.toThrow()
+    })
+
+    it('should reject empty opinion type (32 zero bytes)', async () => {
+      const { deployer, factory } = await createFundedAccounts()
+      const { appClient } = await factory.send.create.createApplication({ args: {} })
+
+      const emptyType = new Uint8Array(32) // all zeros
+
+      await expect(
+        appClient
+          .newGroup()
+          .addTransaction(
+            await algorand.createTransaction.payment({
+              sender: deployer.addr,
+              receiver: appClient.appAddress,
+              amount: (20).algo(),
+            })
+          )
+          .initialize({
+            args: { title, text, duration, opinionType: emptyType, url },
+            extraFee: microAlgo(1000),
+          })
+          .send()
+      ).rejects.toThrow()
+    })
+
+    it('should reject URL that is too long (>96 bytes)', async () => {
+      const { deployer, factory } = await createFundedAccounts()
+      const { appClient } = await factory.send.create.createApplication({ args: {} })
+
+      const longUrl = 'https://example.com/' + 'a'.repeat(80) // > 96 bytes
+
+      await expect(
+        appClient
+          .newGroup()
+          .addTransaction(
+            await algorand.createTransaction.payment({
+              sender: deployer.addr,
+              receiver: appClient.appAddress,
+              amount: (20).algo(),
+            })
+          )
+          .initialize({
+            args: { title, text, duration, opinionType, url: longUrl },
+            extraFee: microAlgo(1000),
+          })
+          .send()
+      ).rejects.toThrow()
+    })
+
+    it('should accept empty URL', async () => {
+      const { deployer, factory } = await createFundedAccounts()
+      const { appClient } = await factory.send.create.createApplication({ args: {} })
+
+      const initResult = await appClient
+        .newGroup()
+        .addTransaction(
+          await algorand.createTransaction.payment({
+            sender: deployer.addr,
+            receiver: appClient.appAddress,
+            amount: (20).algo(),
+          })
+        )
+        .initialize({
+          args: { title, text, duration, opinionType, url: '' },
+          extraFee: microAlgo(1000),
+        })
+        .send()
+
+      const asaId = initResult.returns?.[0]
+      expect(asaId).toBeDefined()
+      expect(asaId).toBeGreaterThan(0n)
+    })
   })
 
-  describe('Petition signing', () => {
+  describe('Opinion signing', () => {
     it('should allow signing via ASA opt-in', async () => {
       const { deployer, signer, factory } = await createFundedAccounts()
       const { appClient } = await factory.send.create.createApplication({ args: {} })
@@ -180,8 +286,8 @@ describe('SignZero e2e tests', () => {
             amount: (20).algo(),
           })
         )
-        .initializePetition({
-          args: { title, text, duration },
+        .initialize({
+          args: { title, text, duration, opinionType, url },
           extraFee: microAlgo(1000),
         })
         .send()
@@ -194,10 +300,10 @@ describe('SignZero e2e tests', () => {
         defaultSender: signer.addr,
       })
 
-      // Sign petition: app call + ASA opt-in in atomic group
+      // Sign opinion: app call + ASA opt-in in atomic group
       await signerClient
         .newGroup()
-        .signPetition({ args: {} })
+        .sign({ args: {} })
         .addTransaction(
           await algorand.createTransaction.assetTransfer({
             sender: signer.addr,
@@ -227,8 +333,8 @@ describe('SignZero e2e tests', () => {
             amount: (20).algo(),
           })
         )
-        .initializePetition({
-          args: { title, text, duration },
+        .initialize({
+          args: { title, text, duration, opinionType, url },
           extraFee: microAlgo(1000),
         })
         .send()
@@ -257,7 +363,7 @@ describe('SignZero e2e tests', () => {
       await expect(
         signerClient
           .newGroup()
-          .signPetition({ args: {} })
+          .sign({ args: {} })
           .addTransaction(
             await algorand.createTransaction.assetTransfer({
               sender: signer.addr,
@@ -271,8 +377,8 @@ describe('SignZero e2e tests', () => {
     })
   })
 
-  describe('Petition extension', () => {
-    it('should allow author to extend petition', async () => {
+  describe('Opinion extension', () => {
+    it('should allow author to extend opinion', async () => {
       const { deployer, factory } = await createFundedAccounts()
       const { appClient } = await factory.send.create.createApplication({ args: {} })
 
@@ -285,22 +391,22 @@ describe('SignZero e2e tests', () => {
             amount: (20).algo(),
           })
         )
-        .initializePetition({
-          args: { title, text, duration },
+        .initialize({
+          args: { title, text, duration, opinionType, url },
           extraFee: microAlgo(1000),
         })
         .send()
 
       const stateBefore = await appClient.state.global.getAll()
-      const currentEnd = stateBefore.petitionEndRound as bigint
+      const currentEnd = stateBefore.endRound as bigint
       const newEnd = currentEnd + 10000n
 
-      await appClient.send.extendPetition({
+      await appClient.send.extend({
         args: { newEndRound: newEnd },
       })
 
       const stateAfter = await appClient.state.global.getAll()
-      expect(stateAfter.petitionEndRound).toBe(newEnd)
+      expect(stateAfter.endRound).toBe(newEnd)
     })
 
     it('should reject extension from non-author', async () => {
@@ -316,14 +422,14 @@ describe('SignZero e2e tests', () => {
             amount: (20).algo(),
           })
         )
-        .initializePetition({
-          args: { title, text, duration },
+        .initialize({
+          args: { title, text, duration, opinionType, url },
           extraFee: microAlgo(1000),
         })
         .send()
 
       const stateBefore = await appClient.state.global.getAll()
-      const currentEnd = stateBefore.petitionEndRound as bigint
+      const currentEnd = stateBefore.endRound as bigint
       const newEnd = currentEnd + 10000n
 
       const signerClient = algorand.client.getTypedAppClientById(SignZeroClient, {
@@ -332,7 +438,7 @@ describe('SignZero e2e tests', () => {
       })
 
       await expect(
-        signerClient.send.extendPetition({
+        signerClient.send.extend({
           args: { newEndRound: newEnd },
         })
       ).rejects.toThrow()
@@ -351,25 +457,25 @@ describe('SignZero e2e tests', () => {
             amount: (20).algo(),
           })
         )
-        .initializePetition({
-          args: { title, text, duration },
+        .initialize({
+          args: { title, text, duration, opinionType, url },
           extraFee: microAlgo(1000),
         })
         .send()
 
       const stateBefore = await appClient.state.global.getAll()
-      const currentEnd = stateBefore.petitionEndRound as bigint
+      const currentEnd = stateBefore.endRound as bigint
 
       await expect(
-        appClient.send.extendPetition({
+        appClient.send.extend({
           args: { newEndRound: currentEnd - 100n },
         })
       ).rejects.toThrow()
     })
   })
 
-  describe('getPetitionInfo', () => {
-    it('should return correct petition info', async () => {
+  describe('getInfo', () => {
+    it('should return correct opinion info', async () => {
       const { deployer, factory } = await createFundedAccounts()
       const { appClient } = await factory.send.create.createApplication({ args: {} })
 
@@ -382,15 +488,15 @@ describe('SignZero e2e tests', () => {
             amount: (20).algo(),
           })
         )
-        .initializePetition({
-          args: { title, text, duration },
+        .initialize({
+          args: { title, text, duration, opinionType, url },
           extraFee: microAlgo(1000),
         })
         .send()
 
       const asaId = initResult.returns?.[0] as bigint
 
-      const result = await appClient.send.getPetitionInfo({ args: {} })
+      const result = await appClient.send.getInfo({ args: {} })
       const [startRound, endRound, returnedAsaId, finalized, initialized] = result.return!
 
       expect(initialized).toBe(true)
@@ -400,8 +506,8 @@ describe('SignZero e2e tests', () => {
     })
   })
 
-  describe('Petition finalization', () => {
-    it('should reject finalization while petition is active', async () => {
+  describe('Opinion finalization', () => {
+    it('should reject finalization while opinion is active', async () => {
       const { deployer, factory } = await createFundedAccounts()
       const { appClient } = await factory.send.create.createApplication({ args: {} })
 
@@ -414,14 +520,14 @@ describe('SignZero e2e tests', () => {
             amount: (20).algo(),
           })
         )
-        .initializePetition({
-          args: { title, text, duration },
+        .initialize({
+          args: { title, text, duration, opinionType, url },
           extraFee: microAlgo(1000),
         })
         .send()
 
       await expect(
-        appClient.send.finalizePetition({
+        appClient.send.finalize({
           args: {},
           extraFee: microAlgo(2000), // Extra fee for inner transactions
         })
@@ -429,8 +535,8 @@ describe('SignZero e2e tests', () => {
     })
   })
 
-  describe('Full petition lifecycle', () => {
-    it('should complete full petition workflow', async () => {
+  describe('Full opinion lifecycle', () => {
+    it('should complete full opinion workflow', async () => {
       const { deployer, signer, factory } = await createFundedAccounts()
 
       // 1. Create application
@@ -439,7 +545,7 @@ describe('SignZero e2e tests', () => {
       })
       expect(createResult.appId).toBeGreaterThan(0n)
 
-      // 2. Initialize petition
+      // 2. Initialize opinion
       const initResult = await appClient
         .newGroup()
         .addTransaction(
@@ -449,11 +555,13 @@ describe('SignZero e2e tests', () => {
             amount: (20).algo(),
           })
         )
-        .initializePetition({
+        .initialize({
           args: {
             title: 'Save the Rainforest',
             text: new TextEncoder().encode('Protect biodiversity and combat climate change'),
             duration: 25000n,
+            opinionType: makeOpinionType('Petition'),
+            url: 'https://savetheforest.org',
           },
           extraFee: microAlgo(1000),
         })
@@ -462,7 +570,7 @@ describe('SignZero e2e tests', () => {
       const asaId = initResult.returns?.[0] as bigint
       expect(asaId).toBeGreaterThan(0n)
 
-      // 3. Signer signs the petition
+      // 3. Signer signs the opinion
       const signerClient = algorand.client.getTypedAppClientById(SignZeroClient, {
         appId: appClient.appId,
         defaultSender: signer.addr,
@@ -470,7 +578,7 @@ describe('SignZero e2e tests', () => {
 
       await signerClient
         .newGroup()
-        .signPetition({ args: {} })
+        .sign({ args: {} })
         .addTransaction(
           await algorand.createTransaction.assetTransfer({
             sender: signer.addr,
@@ -481,22 +589,22 @@ describe('SignZero e2e tests', () => {
         )
         .send()
 
-      // 4. Verify petition info
-      const info = await appClient.send.getPetitionInfo({ args: {} })
-      const [startRound, endRound, petitionAsaId, finalized, initialized] = info.return!
+      // 4. Verify opinion info
+      const info = await appClient.send.getInfo({ args: {} })
+      const [startRound, endRound, opinionAsaId, finalized, initialized] = info.return!
 
       expect(initialized).toBe(true)
       expect(finalized).toBe(false)
-      expect(petitionAsaId).toBe(asaId)
+      expect(opinionAsaId).toBe(asaId)
       expect(endRound).toBeGreaterThan(startRound)
 
-      // 5. Extend petition (author only)
+      // 5. Extend opinion (author only)
       const newEndRound = endRound + 5000n
-      await appClient.send.extendPetition({
+      await appClient.send.extend({
         args: { newEndRound },
       })
 
-      const updatedInfo = await appClient.send.getPetitionInfo({ args: {} })
+      const updatedInfo = await appClient.send.getInfo({ args: {} })
       expect(updatedInfo.return![1]).toBe(newEndRound)
 
       // Verify signer has the ASA (proving they signed)

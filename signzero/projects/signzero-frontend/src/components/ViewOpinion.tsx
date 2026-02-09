@@ -6,12 +6,12 @@ import { SignZeroClient } from '../contracts/SignZeroClient'
 import { lookupNFD, truncateAddress } from '../utils/nfd'
 import { microAlgo } from '@algorandfoundation/algokit-utils'
 
-interface ViewPetitionProps {
+interface ViewOpinionProps {
   appId: bigint
   networkId: NetworkId
 }
 
-interface PetitionInfo {
+interface OpinionInfo {
   startRound: bigint
   endRound: bigint
   asaId: bigint
@@ -19,22 +19,43 @@ interface PetitionInfo {
   initialized: boolean
   title: string
   text: string
+  opinionType: string
+  url: string
   author: string
   authorNfd: string | null
   signatureCount: number
   currentRound: bigint
 }
 
-export function ViewPetition({ appId, networkId }: ViewPetitionProps) {
+function decodeOpinionType(metadataHash: string | Uint8Array | undefined): string {
+  if (!metadataHash) return ''
+  let bytes: Uint8Array
+  if (typeof metadataHash === 'string') {
+    // base64 encoded
+    const binary = atob(metadataHash)
+    bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i)
+    }
+  } else {
+    bytes = metadataHash
+  }
+  // Strip trailing zero bytes
+  let end = bytes.length
+  while (end > 0 && bytes[end - 1] === 0) end--
+  return new TextDecoder().decode(bytes.subarray(0, end))
+}
+
+export function ViewOpinion({ appId, networkId }: ViewOpinionProps) {
   const { activeAddress, transactionSigner } = useWallet()
-  const [petition, setPetition] = useState<PetitionInfo | null>(null)
+  const [opinion, setOpinion] = useState<OpinionInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [signing, setSigning] = useState(false)
   const [finalizing, setFinalizing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hasSigned, setHasSigned] = useState(false)
 
-  const loadPetition = async () => {
+  const loadOpinion = async () => {
     setLoading(true)
     setError(null)
 
@@ -46,12 +67,12 @@ export function ViewPetition({ appId, networkId }: ViewPetitionProps) {
         defaultSender: activeAddress || undefined,
       })
 
-      // Get petition info
-      const infoResult = await appClient.send.getPetitionInfo({ args: {} })
+      // Get opinion info
+      const infoResult = await appClient.send.getInfo({ args: {} })
       const [startRound, endRound, asaId, finalized, initialized] = infoResult.return!
 
       if (!initialized) {
-        setError('Petition not initialized')
+        setError('Opinion not initialized')
         setLoading(false)
         return
       }
@@ -60,15 +81,17 @@ export function ViewPetition({ appId, networkId }: ViewPetitionProps) {
       const status = await algorand.client.algod.status().do()
       const currentRound = BigInt(status.lastRound)
 
-      // Get ASA info to get title and author
+      // Get ASA info to get title, author, type, and URL
       const assetInfo = await algorand.client.algod.getAssetByID(Number(asaId)).do()
       const title = assetInfo.params.name || 'Untitled'
       const author = assetInfo.params.reserve || ''
+      const opinionType = decodeOpinionType(assetInfo.params.metadataHash)
+      const url = assetInfo.params.url || ''
 
       // Get author NFD
       const authorNfdResult = await lookupNFD(author)
 
-      // Get petition text from box
+      // Get opinion text from box
       let text = ''
       try {
         const boxResult = await algorand.client.algod
@@ -76,7 +99,7 @@ export function ViewPetition({ appId, networkId }: ViewPetitionProps) {
           .do()
         text = new TextDecoder().decode(boxResult.value)
       } catch {
-        text = '(Unable to load petition text)'
+        text = '(Unable to load opinion text)'
       }
 
       // Count signatures by checking ASA holders
@@ -100,7 +123,7 @@ export function ViewPetition({ appId, networkId }: ViewPetitionProps) {
         }
       }
 
-      setPetition({
+      setOpinion({
         startRound,
         endRound,
         asaId,
@@ -108,25 +131,27 @@ export function ViewPetition({ appId, networkId }: ViewPetitionProps) {
         initialized,
         title,
         text,
+        opinionType,
+        url,
         author,
         authorNfd: authorNfdResult?.name || null,
         signatureCount,
         currentRound,
       })
     } catch (err) {
-      console.error('Error loading petition:', err)
-      setError(err instanceof Error ? err.message : 'Failed to load petition')
+      console.error('Error loading opinion:', err)
+      setError(err instanceof Error ? err.message : 'Failed to load opinion')
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    loadPetition()
+    loadOpinion()
   }, [appId, networkId, activeAddress])
 
   const handleSign = async () => {
-    if (!activeAddress || !transactionSigner || !petition) return
+    if (!activeAddress || !transactionSigner || !opinion) return
 
     setSigning(true)
     setError(null)
@@ -140,32 +165,32 @@ export function ViewPetition({ appId, networkId }: ViewPetitionProps) {
         defaultSender: activeAddress,
       })
 
-      // Sign petition: app call + ASA opt-in
+      // Sign opinion: app call + ASA opt-in
       await appClient
         .newGroup()
-        .signPetition({ args: {} })
+        .sign({ args: {} })
         .addTransaction(
           await algorand.createTransaction.assetTransfer({
             sender: activeAddress,
             receiver: activeAddress,
-            assetId: petition.asaId,
+            assetId: opinion.asaId,
             amount: 0n,
           })
         )
         .send()
 
       setHasSigned(true)
-      await loadPetition()
+      await loadOpinion()
     } catch (err) {
-      console.error('Error signing petition:', err)
-      setError(err instanceof Error ? err.message : 'Failed to sign petition')
+      console.error('Error signing opinion:', err)
+      setError(err instanceof Error ? err.message : 'Failed to sign opinion')
     } finally {
       setSigning(false)
     }
   }
 
   const handleFinalize = async () => {
-    if (!activeAddress || !transactionSigner || !petition) return
+    if (!activeAddress || !transactionSigner || !opinion) return
 
     setFinalizing(true)
     setError(null)
@@ -179,15 +204,15 @@ export function ViewPetition({ appId, networkId }: ViewPetitionProps) {
         defaultSender: activeAddress,
       })
 
-      await appClient.send.finalizePetition({
+      await appClient.send.finalize({
         args: {},
         extraFee: microAlgo(2000),
       })
 
-      await loadPetition()
+      await loadOpinion()
     } catch (err) {
-      console.error('Error finalizing petition:', err)
-      setError(err instanceof Error ? err.message : 'Failed to finalize petition')
+      console.error('Error finalizing opinion:', err)
+      setError(err instanceof Error ? err.message : 'Failed to finalize opinion')
     } finally {
       setFinalizing(false)
     }
@@ -197,12 +222,12 @@ export function ViewPetition({ appId, networkId }: ViewPetitionProps) {
     return (
       <div className="text-center py-12">
         <div className="animate-spin w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full mx-auto mb-4" />
-        <p className="text-gray-400">Loading petition...</p>
+        <p className="text-gray-400">Loading opinion...</p>
       </div>
     )
   }
 
-  if (error && !petition) {
+  if (error && !opinion) {
     return (
       <div className="text-center py-12">
         <p className="text-red-400">{error}</p>
@@ -210,17 +235,17 @@ export function ViewPetition({ appId, networkId }: ViewPetitionProps) {
     )
   }
 
-  if (!petition) {
+  if (!opinion) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-400">Petition not found</p>
+        <p className="text-gray-400">Opinion not found</p>
       </div>
     )
   }
 
-  const isActive = petition.currentRound <= petition.endRound && !petition.finalized
-  const canFinalize = petition.currentRound > petition.endRound && !petition.finalized
-  const roundsRemaining = isActive ? petition.endRound - petition.currentRound : 0n
+  const isActive = opinion.currentRound <= opinion.endRound && !opinion.finalized
+  const canFinalize = opinion.currentRound > opinion.endRound && !opinion.finalized
+  const roundsRemaining = isActive ? opinion.endRound - opinion.currentRound : 0n
   const timeRemaining = Number(roundsRemaining) * 3.3 // seconds
   const daysRemaining = Math.floor(timeRemaining / 86400)
   const hoursRemaining = Math.floor((timeRemaining % 86400) / 3600)
@@ -230,11 +255,16 @@ export function ViewPetition({ appId, networkId }: ViewPetitionProps) {
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
+          {opinion.opinionType && (
+            <span className="px-3 py-1 bg-blue-500/20 text-blue-400 text-sm rounded-full">
+              {opinion.opinionType}
+            </span>
+          )}
           {isActive ? (
             <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 text-sm rounded-full">
               Active
             </span>
-          ) : petition.finalized ? (
+          ) : opinion.finalized ? (
             <span className="px-3 py-1 bg-gray-500/20 text-gray-400 text-sm rounded-full">
               Finalized
             </span>
@@ -245,20 +275,30 @@ export function ViewPetition({ appId, networkId }: ViewPetitionProps) {
           )}
           <span className="text-gray-500 text-sm">App ID: {appId.toString()}</span>
         </div>
-        <h1 className="text-3xl font-bold mb-2">{petition.title}</h1>
+        <h1 className="text-3xl font-bold mb-2">{opinion.title}</h1>
         <p className="text-gray-400">
           Created by{' '}
           <span className="text-emerald-400">
-            {petition.authorNfd || truncateAddress(petition.author, 6)}
+            {opinion.authorNfd || truncateAddress(opinion.author, 6)}
           </span>
         </p>
+        {opinion.url && (
+          <a
+            href={opinion.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-cyan-400 hover:text-cyan-300 text-sm mt-1 inline-block"
+          >
+            {opinion.url}
+          </a>
+        )}
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-8">
         <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 text-center">
           <div className="text-2xl font-bold text-emerald-400">
-            {petition.signatureCount}
+            {opinion.signatureCount}
           </div>
           <div className="text-sm text-gray-400">Signatures</div>
         </div>
@@ -270,7 +310,7 @@ export function ViewPetition({ appId, networkId }: ViewPetitionProps) {
         </div>
         <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 text-center">
           <div className="text-2xl font-bold text-cyan-400">
-            {petition.asaId.toString()}
+            {opinion.asaId.toString()}
           </div>
           <div className="text-sm text-gray-400">ASA ID</div>
         </div>
@@ -278,8 +318,10 @@ export function ViewPetition({ appId, networkId }: ViewPetitionProps) {
 
       {/* Content */}
       <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-6 mb-8">
-        <h2 className="font-semibold mb-4">Petition Text</h2>
-        <p className="text-gray-300 whitespace-pre-wrap">{petition.text}</p>
+        <h2 className="font-semibold mb-4">
+          {opinion.opinionType || 'Opinion'} Text
+        </h2>
+        <p className="text-gray-300 whitespace-pre-wrap">{opinion.text}</p>
       </div>
 
       {/* Actions */}
@@ -291,11 +333,11 @@ export function ViewPetition({ appId, networkId }: ViewPetitionProps) {
 
       {!activeAddress ? (
         <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-6 text-center">
-          <p className="text-gray-400 mb-4">Connect your wallet to sign this petition</p>
+          <p className="text-gray-400 mb-4">Connect your wallet to sign this opinion</p>
         </div>
       ) : hasSigned ? (
         <div className="bg-emerald-900/30 border border-emerald-700 rounded-lg p-6 text-center">
-          <p className="text-emerald-400">✓ You have signed this petition</p>
+          <p className="text-emerald-400">You have signed this opinion</p>
         </div>
       ) : isActive ? (
         <button
@@ -303,7 +345,7 @@ export function ViewPetition({ appId, networkId }: ViewPetitionProps) {
           disabled={signing}
           className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-lg font-medium text-lg transition-colors"
         >
-          {signing ? 'Signing...' : 'Sign Petition'}
+          {signing ? 'Signing...' : 'Sign'}
         </button>
       ) : canFinalize ? (
         <button
@@ -311,11 +353,11 @@ export function ViewPetition({ appId, networkId }: ViewPetitionProps) {
           disabled={finalizing}
           className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-lg font-medium text-lg transition-colors"
         >
-          {finalizing ? 'Finalizing...' : 'Finalize Petition (Claim Reward)'}
+          {finalizing ? 'Finalizing...' : 'Finalize (Claim Reward)'}
         </button>
       ) : (
         <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-6 text-center">
-          <p className="text-gray-400">This petition has ended and been finalized</p>
+          <p className="text-gray-400">This opinion has ended and been finalized</p>
         </div>
       )}
 
@@ -327,18 +369,18 @@ export function ViewPetition({ appId, networkId }: ViewPetitionProps) {
         <div className="mt-4 bg-gray-800/30 rounded-lg p-4 text-sm text-gray-400 space-y-2">
           <div>
             <span className="text-gray-500">Start Round:</span>{' '}
-            {petition.startRound.toString()}
+            {opinion.startRound.toString()}
           </div>
           <div>
             <span className="text-gray-500">End Round:</span>{' '}
-            {petition.endRound.toString()}
+            {opinion.endRound.toString()}
           </div>
           <div>
             <span className="text-gray-500">Current Round:</span>{' '}
-            {petition.currentRound.toString()}
+            {opinion.currentRound.toString()}
           </div>
           <div>
-            <span className="text-gray-500">Author Address:</span> {petition.author}
+            <span className="text-gray-500">Author Address:</span> {opinion.author}
           </div>
         </div>
       </details>

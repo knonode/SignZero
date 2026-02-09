@@ -5,22 +5,46 @@ import type { NetworkId } from '../utils/algorand'
 import { SignZeroFactory } from '../contracts/SignZeroClient'
 import { microAlgo } from '@algorandfoundation/algokit-utils'
 
-interface CreatePetitionProps {
+const OPINION_TYPES = [
+  'Petition',
+  'Manifesto',
+  'Resolution',
+  'Proposition',
+  'Declaration',
+  'Initiative',
+  'Pledge',
+  'Statement',
+  'Charter',
+  'Consensus',
+  'Other',
+] as const
+
+interface CreateOpinionProps {
   networkId: NetworkId
   onCreated: (appId: bigint) => void
 }
 
-export function CreatePetition({ networkId, onCreated }: CreatePetitionProps) {
+export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
   const { activeAddress, transactionSigner } = useWallet()
   const [title, setTitle] = useState('')
   const [text, setText] = useState('')
   const [durationDays, setDurationDays] = useState(7)
+  const [selectedType, setSelectedType] = useState<string>('Petition')
+  const [customType, setCustomType] = useState('')
+  const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const opinionTypeName = selectedType === 'Other' ? customType : selectedType
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!activeAddress || !transactionSigner) return
+
+    if (!opinionTypeName.trim()) {
+      setError('Opinion type cannot be empty')
+      return
+    }
 
     setLoading(true)
     setError(null)
@@ -46,7 +70,11 @@ export function CreatePetition({ networkId, onCreated }: CreatePetitionProps) {
       const roundsPerDay = Math.floor((24 * 60 * 60) / 3.3)
       const duration = BigInt(durationDays * roundsPerDay)
 
-      // Initialize the petition with funding
+      // Encode opinion type to 32-byte Uint8Array (right-padded with zeros)
+      const opinionType = new Uint8Array(32)
+      new TextEncoder().encodeInto(opinionTypeName.trim(), opinionType)
+
+      // Initialize the opinion with funding
       const textBytes = new TextEncoder().encode(text)
 
       const initResult = await appClient
@@ -58,23 +86,25 @@ export function CreatePetition({ networkId, onCreated }: CreatePetitionProps) {
             amount: (20).algo(),
           })
         )
-        .initializePetition({
+        .initialize({
           args: {
             title,
             text: textBytes,
             duration,
+            opinionType,
+            url,
           },
           extraFee: microAlgo(1000),
         })
         .send()
 
       const asaId = initResult.returns?.[0]
-      console.log('Petition initialized with ASA ID:', asaId)
+      console.log('Opinion initialized with ASA ID:', asaId)
 
       onCreated(result.appId)
     } catch (err) {
-      console.error('Error creating petition:', err)
-      setError(err instanceof Error ? err.message : 'Failed to create petition')
+      console.error('Error creating opinion:', err)
+      setError(err instanceof Error ? err.message : 'Failed to create opinion')
     } finally {
       setLoading(false)
     }
@@ -83,26 +113,52 @@ export function CreatePetition({ networkId, onCreated }: CreatePetitionProps) {
   if (!activeAddress) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-400">Please connect your wallet to create a petition.</p>
+        <p className="text-gray-400">Please connect your wallet to create an opinion.</p>
       </div>
     )
   }
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold mb-2">Create Petition</h1>
+      <h1 className="text-3xl font-bold mb-2">Create Opinion</h1>
       <p className="text-gray-400 mb-8">
-        Start a new petition. Requires 20 ALGO funding to cover contract costs.
+        Start a new opinion. Requires 20 ALGO funding to cover contract costs.
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        <div>
+          <label className="block text-sm font-medium mb-2">Opinion Type</label>
+          <select
+            value={selectedType}
+            onChange={(e) => setSelectedType(e.target.value)}
+            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-emerald-500"
+          >
+            {OPINION_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+          {selectedType === 'Other' && (
+            <input
+              type="text"
+              value={customType}
+              onChange={(e) => setCustomType(e.target.value)}
+              placeholder="Enter custom type (max 32 characters)"
+              maxLength={32}
+              required
+              className="w-full mt-2 px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-emerald-500"
+            />
+          )}
+        </div>
+
         <div>
           <label className="block text-sm font-medium mb-2">Title</label>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Enter petition title (max 32 characters)"
+            placeholder="Enter title (max 32 characters)"
             maxLength={32}
             required
             className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-emerald-500"
@@ -117,7 +173,7 @@ export function CreatePetition({ networkId, onCreated }: CreatePetitionProps) {
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Describe what you're petitioning for..."
+            placeholder="Describe your opinion..."
             rows={6}
             maxLength={2000}
             required
@@ -125,6 +181,21 @@ export function CreatePetition({ networkId, onCreated }: CreatePetitionProps) {
           />
           <p className={`text-xs mt-1 ${2000 - text.length <= 100 ? 'text-yellow-500' : 'text-gray-500'}`}>
             {2000 - text.length} characters remaining
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2">URL (optional)</label>
+          <input
+            type="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://your-website.com"
+            maxLength={96}
+            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-emerald-500"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Optional website or reference link (max 96 characters)
           </p>
         </div>
 
@@ -140,7 +211,7 @@ export function CreatePetition({ networkId, onCreated }: CreatePetitionProps) {
             className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-emerald-500"
           />
           <p className="text-xs text-gray-500 mt-1">
-            Petition will be active for {durationDays} day{durationDays > 1 ? 's' : ''} (~
+            Opinion will be active for {durationDays} day{durationDays > 1 ? 's' : ''} (~
             {Math.floor((durationDays * 24 * 60 * 60) / 3.3).toLocaleString()} rounds)
           </p>
         </div>
@@ -149,7 +220,7 @@ export function CreatePetition({ networkId, onCreated }: CreatePetitionProps) {
           <h3 className="font-medium mb-2">Cost Summary</h3>
           <div className="space-y-1 text-sm text-gray-400">
             <div className="flex justify-between">
-              <span>Petition funding</span>
+              <span>Opinion funding</span>
               <span>20 ALGO</span>
             </div>
             <div className="flex justify-between">
@@ -171,10 +242,10 @@ export function CreatePetition({ networkId, onCreated }: CreatePetitionProps) {
 
         <button
           type="submit"
-          disabled={loading || !title || !text}
+          disabled={loading || !title || !text || (selectedType === 'Other' && !customType.trim())}
           className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-lg font-medium text-lg transition-colors"
         >
-          {loading ? 'Creating Petition...' : 'Create Petition (20 ALGO)'}
+          {loading ? 'Creating Opinion...' : 'Create Opinion (20 ALGO)'}
         </button>
       </form>
     </div>

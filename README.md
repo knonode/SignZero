@@ -1,6 +1,6 @@
 # SignZero
 
-Serverless on-chain petition dApp on Algorand. Sign the petition by opting in to an ASA with supply=0. Ideas don't have ownership, and yet anyone can hold it.
+Serverless on-chain opinion dApp on Algorand. Sign an opinion (petition, manifesto, declaration, etc.) by opting in to an ASA with supply=0. Ideas don't have ownership, and yet anyone can hold it.
 
 ## Problem
 
@@ -12,52 +12,56 @@ A simple mechanism that removes the financial aspect of on-chain participation c
 
 ## How It Works
 
-### 1. Petition Creation
+### 1. Opinion Creation
 
-The petition author deploys a smart contract with:
-- **Petition title** (becomes ASA name, max 32 chars)
-- **Petition text** (stored in box storage, max 32KB)
+The opinion author deploys a smart contract with:
+- **Opinion type** — Petition, Manifesto, Resolution, Declaration, etc. (stored in ASA `metadataHash`, 32 bytes)
+- **Title** (becomes ASA name, max 32 chars)
+- **Opinion text** (stored in box storage, max 32KB)
 - **Duration** in rounds (minimum 25,000 rounds / \~1 day)
+- **URL** — optional author website (stored in ASA `url`, max 96 bytes)
 - **Funding** of at least 20 ALGO (covers MBR + finalizer reward)
 
 Upon deployment, the contract mints an ASA with:
-- **Name**: petition title
+- **Name**: opinion title
 - **Unit name**: "ZERO"
 - **Total supply**: 0
+- **MetadataHash**: opinion type (right-padded with zeros)
+- **URL**: optional author website
 - **Creator**: contract account
 - **Manager**: contract account (removed at finalization)
-- **Reserve**: petition author's address (permanent record)
+- **Reserve**: opinion author's address (permanent record)
 
 *A zero-supply ASA cannot be owned by anyone, not even its creator—just as an idea cannot be owned by anyone, yet can be "owned" by a multitude.*
 
-### 2. Signing the Petition
+### 2. Signing the Opinion
 
 Users sign by submitting an **atomic group** of two transactions:
-1. **App call** to `sign_petition()` - contract verifies petition is active
-2. **ASA opt-in** - user opts into the petition ASA
+1. **App call** to `sign()` - contract verifies opinion is active
+2. **ASA opt-in** - user opts into the opinion ASA
 
-The contract validates that both transactions are correctly formed. If the petition has expired, the entire group fails.
+The contract validates that both transactions are correctly formed. If the opinion has expired, the entire group fails.
 
-The signer now holds 0 units of the petition ASA in their account (with 0.1A MBR).
+The signer now holds 0 units of the opinion ASA in their account (with 0.1A MBR).
 
 *Eligibility verification (ASA holdings, ALGO balance, NFD ownership) is performed off-chain via frontend checks using indexer and NFD API. The on-chain signature remains permissionless—anyone can technically opt in, but off-chain analytics can filter and analyze signers.*
 
 ### 3. Extending Duration
 
-The petition author can extend the petition duration by calling `extend_petition()` with a new end round. Early closure is not permitted.
+The opinion author can extend the opinion duration by calling `extend()` with a new end round. Early closure is not permitted.
 
 ### 4. Finalization
 
-After the petition's end round has passed, **anyone** can call `finalize_petition()`. This:
+After the opinion's end round has passed, **anyone** can call `finalize()`. This:
 1. Removes the ASA manager (making the ASA immutable)
 2. Sends the finalizer reward (remaining ALGO balance) to the caller
-3. Marks the petition as finalized
+3. Marks the opinion as finalized
 
 *The lucky finalizer receives the remaining ALGO as a reward for their service.*
 
 ### 5. Counting Signatures
 
-Signature counting is done **off-chain** by querying an indexer (e.g., Nodely) for all accounts opted into the petition ASA. This allows for rich analytics: account age, activity history, NFD ownership, etc.
+Signature counting is done **off-chain** by querying an indexer (e.g., Nodely) for all accounts opted into the opinion ASA. This allows for rich analytics: account age, activity history, NFD ownership, etc.
 
 ## Funding Breakdown
 
@@ -71,7 +75,7 @@ Authors may fund more than 20 ALGO to increase the finalizer reward.
 
 ## Conclusion
 
-A lightweight, non-binding expression of opinions, removed from financial gratification, to help gauge the sentiment of a community, poll an issue, or rally the troops. Users can keep their petition opt-ins as a resume of opinions, or opt-out after the fact.
+A lightweight, non-binding expression of opinions, removed from financial gratification, to help gauge the sentiment of a community, poll an issue, or rally the troops. Users can keep their opinion opt-ins as a resume of opinions, or opt-out after the fact.
 
 **Sign Zero.**
 

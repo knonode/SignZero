@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react'
 import { useWallet } from '@txnlab/use-wallet-react'
 import { ConnectWallet } from './components/ConnectWallet'
-import { CreatePetition } from './components/CreatePetition'
-import { ViewPetition } from './components/ViewPetition'
-import { PetitionList, savePetitionId } from './components/PetitionList'
+import { CreateOpinion } from './components/CreateOpinion'
+import { ViewOpinion } from './components/ViewOpinion'
+import { OpinionList, saveOpinionId } from './components/OpinionList'
 
 const networkId = (import.meta.env.VITE_NETWORK || 'localnet') as 'localnet' | 'testnet' | 'mainnet'
 
@@ -15,15 +15,15 @@ function App() {
   const [viewAppId, setViewAppId] = useState<bigint | null>(null)
   const [listKey, setListKey] = useState(0)
 
-  const handleViewPetition = (appId: bigint) => {
+  const handleViewOpinion = (appId: bigint) => {
     setViewAppId(appId)
     setView('view')
   }
 
-  const handlePetitionCreated = useCallback((appId: bigint) => {
-    savePetitionId(appId)
+  const handleOpinionCreated = useCallback((appId: bigint) => {
+    saveOpinionId(appId)
     setListKey((k) => k + 1)
-    handleViewPetition(appId)
+    handleViewOpinion(appId)
   }, [])
 
   return (
@@ -60,11 +60,11 @@ function App() {
             <div className="text-center py-6">
               <h1 className="text-3xl md:text-4xl font-bold mb-2">
                 <span className="bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
-                  Decentralized Petitions
+                  Decentralized Opinions
                 </span>
               </h1>
               <p className="text-gray-400 max-w-xl mx-auto">
-                Create and sign petitions on the Algorand blockchain with permanent, transparent signatures.
+                Create and sign petitions, manifestos, declarations, and more on the Algorand blockchain with permanent, transparent signatures.
               </p>
             </div>
 
@@ -79,10 +79,10 @@ function App() {
                   <span className="text-2xl">📝</span>
                   <div>
                     <h3 className="font-semibold group-hover:text-emerald-400 transition-colors">
-                      Create Petition
+                      Create Opinion
                     </h3>
                     <p className="text-gray-500 text-xs">
-                      {activeAddress ? 'Start a new petition' : 'Connect wallet first'}
+                      {activeAddress ? 'Start a new opinion' : 'Connect wallet first'}
                     </p>
                   </div>
                 </div>
@@ -94,7 +94,7 @@ function App() {
                   const formData = new FormData(e.currentTarget)
                   const appId = formData.get('appId') as string
                   if (appId) {
-                    handleViewPetition(BigInt(appId))
+                    handleViewOpinion(BigInt(appId))
                   }
                 }}
                 className="p-4 bg-gray-800/50 border border-gray-700 rounded-lg"
@@ -120,13 +120,13 @@ function App() {
               </form>
             </div>
 
-            {/* Petition List */}
+            {/* Opinion List */}
             <div className="max-w-2xl mx-auto">
-              <h2 className="text-lg font-semibold mb-4 text-gray-300">Recent Petitions</h2>
-              <PetitionList
+              <h2 className="text-lg font-semibold mb-4 text-gray-300">Recent Opinions</h2>
+              <OpinionList
                 key={listKey}
                 networkId={networkId}
-                onViewPetition={handleViewPetition}
+                onViewOpinion={handleViewOpinion}
               />
             </div>
 
@@ -142,8 +142,8 @@ function App() {
                     Algorand wallet (Pera, Defly, or KMD for LocalNet)
                   </li>
                   <li>
-                    <span className="text-emerald-400 font-medium">2.</span> Create a petition
-                    with a title, description, and duration (requires 20 ALGO funding)
+                    <span className="text-emerald-400 font-medium">2.</span> Create an opinion
+                    — choose a type (petition, manifesto, declaration, etc.), add a title, description, and duration (requires 20 ALGO funding)
                   </li>
                   <li>
                     <span className="text-emerald-400 font-medium">3.</span> Share the App ID
@@ -151,10 +151,10 @@ function App() {
                   </li>
                   <li>
                     <span className="text-emerald-400 font-medium">4.</span> Signers opt into
-                    the petition's ASA to record their support permanently
+                    the opinion's ASA to record their support permanently
                   </li>
                   <li>
-                    <span className="text-emerald-400 font-medium">5.</span> After the petition
+                    <span className="text-emerald-400 font-medium">5.</span> After the opinion
                     ends, anyone can finalize it and claim the remaining balance
                   </li>
                 </ol>
@@ -171,9 +171,9 @@ function App() {
             >
               ← Back
             </button>
-            <CreatePetition
+            <CreateOpinion
               networkId={networkId}
-              onCreated={handlePetitionCreated}
+              onCreated={handleOpinionCreated}
             />
           </div>
         )}
@@ -186,7 +186,7 @@ function App() {
             >
               ← Back
             </button>
-            <ViewPetition appId={viewAppId} networkId={networkId} />
+            <ViewOpinion appId={viewAppId} networkId={networkId} />
           </div>
         )}
       </main>

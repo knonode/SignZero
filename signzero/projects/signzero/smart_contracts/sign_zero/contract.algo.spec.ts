@@ -19,40 +19,40 @@ describe('SignZero unit tests', () => {
       const contract = ctx.contract.create(SignZero)
       contract.createApplication()
 
-      expect(contract.petitionInitialized.value).toBe(false)
-      expect(contract.petitionFinalized.value).toBe(false)
+      expect(contract.initialized.value).toBe(false)
+      expect(contract.finalized.value).toBe(false)
     })
   })
 
-  describe('signPetition - uninitialized', () => {
+  describe('sign - uninitialized', () => {
     it('should fail if not initialized', () => {
       const contract = ctx.contract.create(SignZero)
       contract.createApplication()
 
       expect(() => {
-        contract.signPetition()
+        contract.sign()
       }).toThrow('Not initialized')
     })
   })
 
-  describe('extendPetition - uninitialized', () => {
+  describe('extend - uninitialized', () => {
     it('should fail if not initialized', () => {
       const contract = ctx.contract.create(SignZero)
       contract.createApplication()
 
       expect(() => {
-        contract.extendPetition(Uint64(50000))
+        contract.extend(Uint64(50000))
       }).toThrow('Not initialized')
     })
   })
 
-  describe('finalizePetition - uninitialized', () => {
+  describe('finalize - uninitialized', () => {
     it('should fail if not initialized', () => {
       const contract = ctx.contract.create(SignZero)
       contract.createApplication()
 
       expect(() => {
-        contract.finalizePetition()
+        contract.finalize()
       }).toThrow('Not initialized')
     })
   })

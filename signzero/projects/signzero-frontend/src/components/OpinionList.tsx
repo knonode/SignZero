@@ -4,14 +4,15 @@ import type { NetworkId } from '../utils/algorand'
 import { SignZeroClient } from '../contracts/SignZeroClient'
 import { lookupNFD, truncateAddress, batchLookupNFD } from '../utils/nfd'
 
-interface PetitionListProps {
+interface OpinionListProps {
   networkId: NetworkId
-  onViewPetition: (appId: bigint) => void
+  onViewOpinion: (appId: bigint) => void
 }
 
-interface PetitionSummary {
+interface OpinionSummary {
   appId: bigint
   title: string
+  opinionType: string
   author: string
   authorNfd: string | null
   signatureCount: number
@@ -20,9 +21,9 @@ interface PetitionSummary {
 }
 
 // Keep localStorage as a cache for quick loading, but fetch from indexer
-const STORAGE_KEY = 'signzero_petitions'
+const STORAGE_KEY = 'signzero_opinions'
 
-export function savePetitionId(appId: bigint) {
+export function saveOpinionId(appId: bigint) {
   const stored = localStorage.getItem(STORAGE_KEY)
   const ids: string[] = stored ? JSON.parse(stored) : []
   const idStr = appId.toString()
@@ -33,10 +34,27 @@ export function savePetitionId(appId: bigint) {
 }
 
 // Check if an app has SignZero global state structure
-function isSignZeroPetition(globalState: Record<string, unknown>): boolean {
+function isSignZeroOpinion(globalState: Record<string, unknown>): boolean {
   // Keys are: init, finalized, end, asa, start
   const requiredKeys = ['start', 'end', 'asa', 'finalized', 'init']
   return requiredKeys.every((key) => key in globalState)
+}
+
+function decodeOpinionType(metadataHash: string | Uint8Array | undefined): string {
+  if (!metadataHash) return ''
+  let bytes: Uint8Array
+  if (typeof metadataHash === 'string') {
+    const binary = atob(metadataHash)
+    bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i)
+    }
+  } else {
+    bytes = metadataHash
+  }
+  let end = bytes.length
+  while (end > 0 && bytes[end - 1] === 0) end--
+  return new TextDecoder().decode(bytes.subarray(0, end))
 }
 
 // Parse global state from indexer response (handles both formats)
@@ -66,28 +84,28 @@ function parseGlobalState(state: Array<{ key: string | Uint8Array; value: { type
   return result
 }
 
-export function PetitionList({ networkId, onViewPetition }: PetitionListProps) {
-  const [petitions, setPetitions] = useState<PetitionSummary[]>([])
+export function OpinionList({ networkId, onViewOpinion }: OpinionListProps) {
+  const [opinions, setOpinions] = useState<OpinionSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    loadPetitions()
+    loadOpinions()
   }, [networkId])
 
-  const loadPetitions = async () => {
+  const loadOpinions = async () => {
     setLoading(true)
     setError(null)
 
     try {
       const algorand = getAlgorandClient(networkId)
-      const loaded: PetitionSummary[] = []
+      const loaded: OpinionSummary[] = []
 
       // Get current round first
       const status = await algorand.client.algod.status().do()
       const currentRound = BigInt(status.lastRound)
 
-      // Query indexer for all applications and filter for SignZero petitions
+      // Query indexer for all applications and filter for SignZero opinions
       let nextToken: string | undefined
       const maxApps = 50 // Limit to prevent too many requests
 
@@ -109,9 +127,9 @@ export function PetitionList({ networkId, onViewPetition }: PetitionListProps) {
           if (!globalState) continue
 
           const parsed = parseGlobalState(globalState)
-          if (!isSignZeroPetition(parsed)) continue
+          if (!isSignZeroOpinion(parsed)) continue
 
-          // It's a SignZero petition
+          // It's a SignZero opinion
           const appId = BigInt(app.id)
           const initialized = parsed.init === 1n
           const finalized = parsed.finalized === 1n
@@ -120,11 +138,12 @@ export function PetitionList({ networkId, onViewPetition }: PetitionListProps) {
 
           if (!initialized) continue
 
-          // Get ASA info for title and author
+          // Get ASA info for title, author, and type
           try {
             const assetInfo = await algorand.client.algod.getAssetByID(Number(asaId)).do()
             const title = assetInfo.params.name || 'Untitled'
             const author = assetInfo.params.reserve || ''
+            const opinionType = decodeOpinionType(assetInfo.params.metadataHash)
 
             // Count signatures
             let signatureCount = 0
@@ -140,6 +159,7 @@ export function PetitionList({ networkId, onViewPetition }: PetitionListProps) {
             loaded.push({
               appId,
               title,
+              opinionType,
               author,
               authorNfd: null, // Will be filled in batch
               signatureCount,
@@ -148,9 +168,9 @@ export function PetitionList({ networkId, onViewPetition }: PetitionListProps) {
             })
 
             // Save to localStorage cache
-            savePetitionId(appId)
+            saveOpinionId(appId)
           } catch (err) {
-            console.error(`Failed to load ASA info for petition ${appId}:`, err)
+            console.error(`Failed to load ASA info for opinion ${appId}:`, err)
           }
         }
       } while (nextToken && loaded.length < maxApps)
@@ -160,9 +180,9 @@ export function PetitionList({ networkId, onViewPetition }: PetitionListProps) {
         const authors = [...new Set(loaded.map((p) => p.author).filter(Boolean))]
         const nfdResults = await batchLookupNFD(authors)
 
-        for (const petition of loaded) {
-          if (petition.author && nfdResults[petition.author]) {
-            petition.authorNfd = nfdResults[petition.author].name
+        for (const opinion of loaded) {
+          if (opinion.author && nfdResults[opinion.author]) {
+            opinion.authorNfd = nfdResults[opinion.author].name
           }
         }
       }
@@ -170,10 +190,10 @@ export function PetitionList({ networkId, onViewPetition }: PetitionListProps) {
       // Sort by appId descending (newest first)
       loaded.sort((a, b) => (b.appId > a.appId ? 1 : -1))
 
-      setPetitions(loaded)
+      setOpinions(loaded)
     } catch (err) {
-      console.error('Failed to load petitions from indexer:', err)
-      setError('Failed to load petitions. Indexer may not be available.')
+      console.error('Failed to load opinions from indexer:', err)
+      setError('Failed to load opinions. Indexer may not be available.')
     } finally {
       setLoading(false)
     }
@@ -183,7 +203,7 @@ export function PetitionList({ networkId, onViewPetition }: PetitionListProps) {
     return (
       <div className="text-center py-8">
         <div className="animate-spin w-6 h-6 border-2 border-emerald-400 border-t-transparent rounded-full mx-auto mb-2" />
-        <p className="text-gray-500 text-sm">Loading petitions from indexer...</p>
+        <p className="text-gray-500 text-sm">Loading opinions from indexer...</p>
       </div>
     )
   }
@@ -193,7 +213,7 @@ export function PetitionList({ networkId, onViewPetition }: PetitionListProps) {
       <div className="text-center py-8 bg-red-900/20 border border-red-700/50 rounded-xl">
         <p className="text-red-400 text-sm">{error}</p>
         <button
-          onClick={loadPetitions}
+          onClick={loadOpinions}
           className="mt-2 text-xs text-gray-400 hover:text-white underline"
         >
           Try again
@@ -202,10 +222,10 @@ export function PetitionList({ networkId, onViewPetition }: PetitionListProps) {
     )
   }
 
-  if (petitions.length === 0) {
+  if (opinions.length === 0) {
     return (
       <div className="text-center py-12 bg-gray-800/30 border border-gray-700 rounded-xl">
-        <p className="text-gray-500">No petitions found on the blockchain yet.</p>
+        <p className="text-gray-500">No opinions found on the blockchain yet.</p>
         <p className="text-gray-600 text-sm mt-1">Create one to get started!</p>
       </div>
     )
@@ -213,20 +233,25 @@ export function PetitionList({ networkId, onViewPetition }: PetitionListProps) {
 
   return (
     <div className="space-y-3">
-      {petitions.map((petition) => (
+      {opinions.map((opinion) => (
         <button
-          key={petition.appId.toString()}
-          onClick={() => onViewPetition(petition.appId)}
+          key={opinion.appId.toString()}
+          onClick={() => onViewOpinion(opinion.appId)}
           className="w-full p-4 bg-gray-800/50 border border-gray-700 rounded-lg hover:border-emerald-500/50 hover:bg-gray-800 transition-all text-left flex items-center gap-4"
         >
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-medium truncate">{petition.title}</h3>
-              {petition.isActive ? (
+              <h3 className="font-medium truncate">{opinion.title}</h3>
+              {opinion.opinionType && (
+                <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded-full shrink-0">
+                  {opinion.opinionType}
+                </span>
+              )}
+              {opinion.isActive ? (
                 <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full shrink-0">
                   Active
                 </span>
-              ) : petition.isFinalized ? (
+              ) : opinion.isFinalized ? (
                 <span className="px-2 py-0.5 bg-gray-500/20 text-gray-400 text-xs rounded-full shrink-0">
                   Finalized
                 </span>
@@ -237,11 +262,11 @@ export function PetitionList({ networkId, onViewPetition }: PetitionListProps) {
               )}
             </div>
             <p className="text-sm text-gray-500">
-              by {petition.authorNfd || truncateAddress(petition.author, 4)} • App ID: {petition.appId.toString()}
+              by {opinion.authorNfd || truncateAddress(opinion.author, 4)} • App ID: {opinion.appId.toString()}
             </p>
           </div>
           <div className="text-right shrink-0">
-            <div className="text-xl font-bold text-emerald-400">{petition.signatureCount}</div>
+            <div className="text-xl font-bold text-emerald-400">{opinion.signatureCount}</div>
             <div className="text-xs text-gray-500">signatures</div>
           </div>
         </button>

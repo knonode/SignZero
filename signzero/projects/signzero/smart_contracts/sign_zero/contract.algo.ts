@@ -12,6 +12,7 @@ import {
   Bytes,
   Account,
   abimethod,
+  op,
 } from '@algorandfoundation/algorand-typescript'
 import type { uint64, bytes } from '@algorandfoundation/algorand-typescript'
 
@@ -21,33 +22,35 @@ const MIN_DURATION = 25_000 // ~1 day in rounds
 
 export class SignZero extends Contract {
   // Global state
-  petitionStartRound = GlobalState<uint64>({ key: 'start' })
-  petitionEndRound = GlobalState<uint64>({ key: 'end' })
-  petitionFinalized = GlobalState<boolean>({ key: 'finalized' })
-  petitionAsaId = GlobalState<uint64>({ key: 'asa' })
-  petitionInitialized = GlobalState<boolean>({ key: 'init' })
+  startRound = GlobalState<uint64>({ key: 'start' })
+  endRound = GlobalState<uint64>({ key: 'end' })
+  finalized = GlobalState<boolean>({ key: 'finalized' })
+  asaId = GlobalState<uint64>({ key: 'asa' })
+  initialized = GlobalState<boolean>({ key: 'init' })
 
-  // Box storage for petition text
-  petitionText = Box<bytes>({ key: 'text' })
+  // Box storage for opinion text
+  opinionText = Box<bytes>({ key: 'text' })
 
   /**
    * Creates the application (empty state)
    */
   public createApplication(): void {
-    this.petitionInitialized.value = false
-    this.petitionFinalized.value = false
+    this.initialized.value = false
+    this.finalized.value = false
   }
 
   /**
-   * Initializes the petition with funding, title, text, and duration
+   * Initializes the opinion with funding, title, text, duration, type, and optional URL
    * Must be called with a payment transaction in the same group
-   * @param title - Petition title (becomes ASA name, max 32 chars)
-   * @param text - Petition content (stored in box, max 32KB)
+   * @param title - Opinion title (becomes ASA name, max 32 chars)
+   * @param text - Opinion content (stored in box, max 32KB)
    * @param duration - Duration in rounds (min 25,000)
+   * @param opinionType - Opinion type (exactly 32 bytes, right-padded with zeros)
+   * @param url - Optional author website (max 96 bytes)
    */
-  public initializePetition(title: string, text: bytes, duration: uint64): uint64 {
+  public initialize(title: string, text: bytes, duration: uint64, opinionType: bytes, url: string): uint64 {
     // Verify not already initialized
-    assert(!this.petitionInitialized.value, 'Already initialized')
+    assert(!this.initialized.value, 'Already initialized')
 
     // Verify minimum funding (payment must be first txn in group)
     assert(Global.groupSize === Uint64(2), 'Expected payment + app call')
@@ -63,28 +66,39 @@ export class SignZero extends Contract {
 
     // Verify title length (ASA name max 32 bytes)
     assert(title !== '', 'Title cannot be empty')
+    assert(Bytes(title).length <= Uint64(32), 'Title exceeds 32 bytes')
 
-    // Verify text is not empty
+    // Verify text is not empty and within box size limit
     assert(text !== Bytes(''), 'Text cannot be empty')
+    assert(text.length <= Uint64(32768), 'Text exceeds 32KB')
 
-    // Set petition timing
+    // Verify opinion type: must be exactly 32 bytes and not all zeros
+    assert(opinionType.length === Uint64(32), 'Opinion type must be 32 bytes')
+    assert(opinionType !== op.bzero(32), 'Opinion type cannot be empty')
+
+    // Verify URL length
+    assert(Bytes(url).length <= Uint64(96), 'URL exceeds 96 bytes')
+
+    // Set opinion timing
     const startRound: uint64 = Global.round
     const endRound: uint64 = startRound + duration
-    this.petitionStartRound.value = startRound
-    this.petitionEndRound.value = endRound
+    this.startRound.value = startRound
+    this.endRound.value = endRound
 
-    // Store petition text in box
-    this.petitionText.value = text
+    // Store opinion text in box
+    this.opinionText.value = text
 
-    // Create petition ASA
+    // Create opinion ASA
     const asaResult = itxn
       .assetConfig({
         total: Uint64(0),
         decimals: Uint64(0),
         assetName: title,
         unitName: 'ZERO',
+        metadataHash: opinionType.toFixed({ length: 32, strategy: 'assert-length' }),
+        url: url,
         manager: Global.currentApplicationAddress,
-        reserve: Txn.sender, // Petition author stored here
+        reserve: Txn.sender, // Opinion author stored here
         freeze: Account(),
         clawback: Account(),
         fee: Uint64(0),
@@ -92,75 +106,75 @@ export class SignZero extends Contract {
       .submit()
 
     const asaId: uint64 = asaResult.createdAsset.id
-    this.petitionAsaId.value = asaId
+    this.asaId.value = asaId
 
     // Mark as initialized
-    this.petitionInitialized.value = true
+    this.initialized.value = true
 
     return asaId
   }
 
   /**
-   * Signs the petition (validates atomic group with ASA opt-in)
+   * Signs the opinion (validates atomic group with ASA opt-in)
    * Must be called as first txn in atomic group where second txn is ASA opt-in
    */
-  public signPetition(): void {
+  public sign(): void {
     // Verify initialized
-    assert(this.petitionInitialized.value, 'Not initialized')
+    assert(this.initialized.value, 'Not initialized')
 
-    // Verify petition is active
-    assert(Global.round <= this.petitionEndRound.value, 'Petition has ended')
-    assert(!this.petitionFinalized.value, 'Petition already finalized')
+    // Verify opinion is active
+    assert(Global.round <= this.endRound.value, 'Opinion has ended')
+    assert(!this.finalized.value, 'Opinion already finalized')
 
     // Verify atomic group structure
     assert(Global.groupSize === Uint64(2), 'Expected app call + ASA opt-in')
 
     // Verify second transaction is valid ASA opt-in
     const optIn = gtxn.AssetTransferTxn(Uint64(1))
-    assert(optIn.xferAsset.id === this.petitionAsaId.value, 'Must opt into petition ASA')
+    assert(optIn.xferAsset.id === this.asaId.value, 'Must opt into opinion ASA')
     assert(optIn.assetAmount === Uint64(0), 'Must be opt-in (amount 0)')
     assert(optIn.sender.bytes === Txn.sender.bytes, 'Opt-in sender must match caller')
     assert(optIn.assetReceiver.bytes === Txn.sender.bytes, 'Opt-in receiver must match caller')
   }
 
   /**
-   * Extends the petition duration (author only)
+   * Extends the opinion duration (author only)
    * @param newEndRound - New end round (must be greater than current)
    */
-  public extendPetition(newEndRound: uint64): void {
+  public extend(newEndRound: uint64): void {
     // Verify initialized
-    assert(this.petitionInitialized.value, 'Not initialized')
+    assert(this.initialized.value, 'Not initialized')
 
-    // Verify caller is petition author (stored in ASA reserve address)
-    const asa = Asset(this.petitionAsaId.value)
+    // Verify caller is opinion author (stored in ASA reserve address)
+    const asa = Asset(this.asaId.value)
     assert(Txn.sender.bytes === asa.reserve.bytes, 'Only author can extend')
 
-    // Verify petition not finalized
-    assert(!this.petitionFinalized.value, 'Petition already finalized')
+    // Verify opinion not finalized
+    assert(!this.finalized.value, 'Opinion already finalized')
 
     // Verify new end is greater than current
-    assert(newEndRound > this.petitionEndRound.value, 'New end must be greater')
+    assert(newEndRound > this.endRound.value, 'New end must be greater')
 
     // Update end round
-    this.petitionEndRound.value = newEndRound
+    this.endRound.value = newEndRound
   }
 
   /**
-   * Finalizes the petition (anyone can call after end round)
+   * Finalizes the opinion (anyone can call after end round)
    * Removes ASA manager and sends remaining balance to caller
    */
-  public finalizePetition(): void {
+  public finalize(): void {
     // Verify initialized
-    assert(this.petitionInitialized.value, 'Not initialized')
+    assert(this.initialized.value, 'Not initialized')
 
-    // Verify petition has ended
-    assert(Global.round > this.petitionEndRound.value, 'Petition still active')
+    // Verify opinion has ended
+    assert(Global.round > this.endRound.value, 'Opinion still active')
 
     // Verify not already finalized
-    assert(!this.petitionFinalized.value, 'Petition already finalized')
+    assert(!this.finalized.value, 'Opinion already finalized')
 
     // Remove ASA manager (makes ASA immutable)
-    const asa = Asset(this.petitionAsaId.value)
+    const asa = Asset(this.asaId.value)
     itxn
       .assetConfig({
         configAsset: asa,
@@ -173,7 +187,7 @@ export class SignZero extends Contract {
       .submit()
 
     // Mark as finalized
-    this.petitionFinalized.value = true
+    this.finalized.value = true
 
     // Calculate reward (contract balance minus minimum balance)
     const reward: uint64 =
@@ -192,16 +206,16 @@ export class SignZero extends Contract {
   }
 
   /**
-   * Read-only: Get petition info
+   * Read-only: Get opinion info
    */
   @abimethod({ readonly: true })
-  public getPetitionInfo(): [uint64, uint64, uint64, boolean, boolean] {
+  public getInfo(): [uint64, uint64, uint64, boolean, boolean] {
     return [
-      this.petitionStartRound.value,
-      this.petitionEndRound.value,
-      this.petitionAsaId.value,
-      this.petitionFinalized.value,
-      this.petitionInitialized.value,
+      this.startRound.value,
+      this.endRound.value,
+      this.asaId.value,
+      this.finalized.value,
+      this.initialized.value,
     ]
   }
 }
