@@ -4,7 +4,8 @@ import { getAlgorandClient } from '../utils/algorand'
 import type { NetworkId } from '../utils/algorand'
 import { SignZeroClient } from '../contracts/SignZeroClient'
 import { lookupNFD, truncateAddress } from '../utils/nfd'
-import { decodeOpinionType } from '../utils/signzero'
+import { decodeOpinionType, parseGlobalState, isSignZeroOpinion } from '../utils/signzero'
+import { useToast } from './Toast'
 import { microAlgo } from '@algorandfoundation/algokit-utils'
 
 interface ViewOpinionProps {
@@ -30,6 +31,7 @@ interface OpinionInfo {
 
 export function ViewOpinion({ appId, networkId }: ViewOpinionProps) {
   const { activeAddress, transactionSigner } = useWallet()
+  const { addToast, updateToast } = useToast()
   const [opinion, setOpinion] = useState<OpinionInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [signing, setSigning] = useState(false)
@@ -44,19 +46,33 @@ export function ViewOpinion({ appId, networkId }: ViewOpinionProps) {
     try {
       const algorand = getAlgorandClient(networkId)
 
-      const appClient = algorand.client.getTypedAppClientById(SignZeroClient, {
-        appId,
-        defaultSender: activeAddress || undefined,
-      })
+      // Read global state directly from algod — no wallet needed
+      const appInfo = await algorand.client.algod.getApplicationByID(Number(appId)).do()
+      const globalState = appInfo.params?.globalState
+      if (!globalState) {
+        setError('Application has no global state')
+        setLoading(false)
+        return
+      }
 
-      const infoResult = await appClient.send.getInfo({ args: {} })
-      const [startRound, endRound, asaId, finalized, initialized] = infoResult.return!
+      const parsed = parseGlobalState(globalState)
+      if (!isSignZeroOpinion(parsed)) {
+        setError('Not a SignZero opinion')
+        setLoading(false)
+        return
+      }
 
+      const initialized = parsed.init === 1n
       if (!initialized) {
         setError('Opinion not initialized')
         setLoading(false)
         return
       }
+
+      const startRound = parsed.start as bigint
+      const endRound = parsed.end as bigint
+      const asaId = parsed.asa as bigint
+      const finalized = parsed.finalized === 1n
 
       const status = await algorand.client.algod.status().do()
       const currentRound = BigInt(status.lastRound)
@@ -67,7 +83,7 @@ export function ViewOpinion({ appId, networkId }: ViewOpinionProps) {
       const opinionType = decodeOpinionType(assetInfo.params.metadataHash)
       const url = assetInfo.params.url || ''
 
-      const authorNfdResult = await lookupNFD(author)
+      const authorNfdResult = networkId !== 'localnet' ? await lookupNFD(author) : null
 
       let text = ''
       try {
@@ -131,6 +147,8 @@ export function ViewOpinion({ appId, networkId }: ViewOpinionProps) {
     setSigning(true)
     setError(null)
 
+    const toastId = addToast('Approve the signing transaction in your wallet (app call + ASA opt-in)', 'loading')
+
     try {
       const algorand = getAlgorandClient(networkId)
       algorand.setSigner(activeAddress, transactionSigner)
@@ -153,11 +171,14 @@ export function ViewOpinion({ appId, networkId }: ViewOpinionProps) {
         )
         .send()
 
+      updateToast(toastId, 'Signature recorded on the blockchain!', 'success')
       setHasSigned(true)
       await loadOpinion()
     } catch (err) {
       console.error('Error signing opinion:', err)
-      setError(err instanceof Error ? err.message : 'Failed to sign opinion')
+      const msg = err instanceof Error ? err.message : 'Failed to sign opinion'
+      updateToast(toastId, msg, 'error')
+      setError(msg)
     } finally {
       setSigning(false)
     }
@@ -168,6 +189,8 @@ export function ViewOpinion({ appId, networkId }: ViewOpinionProps) {
 
     setFinalizing(true)
     setError(null)
+
+    const toastId = addToast('Approve the finalization transaction in your wallet', 'loading')
 
     try {
       const algorand = getAlgorandClient(networkId)
@@ -183,10 +206,13 @@ export function ViewOpinion({ appId, networkId }: ViewOpinionProps) {
         extraFee: microAlgo(2000),
       })
 
+      updateToast(toastId, 'Opinion finalized! Remaining balance claimed.', 'success')
       await loadOpinion()
     } catch (err) {
       console.error('Error finalizing opinion:', err)
-      setError(err instanceof Error ? err.message : 'Failed to finalize opinion')
+      const msg = err instanceof Error ? err.message : 'Failed to finalize opinion'
+      updateToast(toastId, msg, 'error')
+      setError(msg)
     } finally {
       setFinalizing(false)
     }
@@ -282,12 +308,28 @@ export function ViewOpinion({ appId, networkId }: ViewOpinionProps) {
           </div>
           <div className="text-sm text-[var(--text-secondary)]">Time Remaining</div>
         </div>
-        <div className="bg-[var(--bg-card)] border border-[var(--border)] p-4 text-center">
-          <div className="text-2xl font-bold text-[var(--accent-cyan)]">
-            {opinion.asaId.toString()}
+        {networkId === 'mainnet' || networkId === 'testnet' ? (
+          <a
+            href={networkId === 'mainnet'
+              ? `https://allo.info/asset/${opinion.asaId}`
+              : `https://lora.algokit.io/testnet/asset/${opinion.asaId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-[var(--bg-card)] border border-[var(--border)] p-4 text-center hover:border-[var(--accent-cyan)] transition-colors"
+          >
+            <div className="text-2xl font-bold text-[var(--accent-cyan)]">
+              {opinion.asaId.toString()}
+            </div>
+            <div className="text-sm text-[var(--text-secondary)]">ASA ID</div>
+          </a>
+        ) : (
+          <div className="bg-[var(--bg-card)] border border-[var(--border)] p-4 text-center">
+            <div className="text-2xl font-bold text-[var(--accent-cyan)]">
+              {opinion.asaId.toString()}
+            </div>
+            <div className="text-sm text-[var(--text-secondary)]">ASA ID</div>
           </div>
-          <div className="text-sm text-[var(--text-secondary)]">ASA ID</div>
-        </div>
+        )}
       </div>
 
       {/* Content */}

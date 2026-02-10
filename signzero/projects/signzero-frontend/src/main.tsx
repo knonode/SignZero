@@ -10,6 +10,7 @@ import {
   NetworkId,
 } from '@txnlab/use-wallet'
 import { ThemeProvider } from './ThemeContext'
+import { ToastProvider } from './components/Toast'
 import './index.css'
 import App from './App'
 
@@ -30,6 +31,9 @@ const walletManager = new WalletManager({
   wallets: [
     WalletId.DEFLY,
     WalletId.PERA,
+    WalletId.LUTE,
+    WalletId.KIBISIS,
+    WalletId.EXODUS,
     WalletId.KMD,
   ],
   defaultNetwork: getNetworkId(),
@@ -38,9 +42,11 @@ const walletManager = new WalletManager({
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>
-      <WalletProvider manager={walletManager}>
-        <App />
-      </WalletProvider>
+      <ToastProvider>
+        <WalletProvider manager={walletManager}>
+          <App />
+        </WalletProvider>
+      </ToastProvider>
     </ThemeProvider>
   </StrictMode>
 )

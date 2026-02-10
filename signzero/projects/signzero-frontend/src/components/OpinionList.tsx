@@ -4,6 +4,12 @@ import type { NetworkId } from '../utils/algorand'
 import { truncateAddress, batchLookupNFD } from '../utils/nfd'
 import { parseGlobalState, isSignZeroOpinion, decodeOpinionType } from '../utils/signzero'
 
+// Fixed min-round for note prefix search per network (approximate chain start for SignZero)
+const MIN_ROUND: Record<string, number> = {
+  testnet: 60000000,
+  mainnet: 58200000,
+}
+
 interface OpinionListProps {
   networkId: NetworkId
   onViewOpinion: (appId: bigint) => void
@@ -38,56 +44,146 @@ export function OpinionList({ networkId, onViewOpinion, authorFilter }: OpinionL
     setPage(0)
   }, [pageSize, authorFilter])
 
+  // Localnet: full indexer scan (few apps, no rate limits)
+  const scanAllApps = async () => {
+    const algorand = getAlgorandClient(networkId)
+    const status = await algorand.client.algod.status().do()
+    const currentRound = BigInt(status.lastRound)
+
+    interface MatchedApp {
+      appId: bigint
+      finalized: boolean
+      endRound: bigint
+      asaId: bigint
+    }
+    const matched: MatchedApp[] = []
+    let nextToken: string | undefined
+
+    do {
+      const searchParams = algorand.client.indexer.searchForApplications().limit(100)
+      if (nextToken) {
+        searchParams.nextToken(nextToken)
+      }
+
+      const response = await searchParams.do()
+      const apps = response.applications || []
+      nextToken = response.nextToken
+
+      for (const app of apps) {
+        const globalState = app.params?.globalState
+        if (!globalState) continue
+
+        const parsed = parseGlobalState(globalState)
+        if (!isSignZeroOpinion(parsed)) continue
+
+        const initialized = parsed.init === 1n
+        if (!initialized) continue
+
+        matched.push({
+          appId: BigInt(app.id),
+          finalized: parsed.finalized === 1n,
+          endRound: parsed.end as bigint,
+          asaId: parsed.asa as bigint,
+        })
+      }
+    } while (nextToken)
+
+    return { matched, currentRound }
+  }
+
+  // Discover SignZero apps via note prefix on creation transactions
+  const discoverByNotePrefix = async (): Promise<bigint[]> => {
+    const algorand = getAlgorandClient(networkId)
+    const discovered: bigint[] = []
+    const notePrefix = new TextEncoder().encode('signzero:v1')
+    const minRound = MIN_ROUND[networkId] || 0
+
+    let nextToken: string | undefined
+    const MAX_PAGES = 10
+
+    for (let i = 0; i < MAX_PAGES; i++) {
+      const search = algorand.client.indexer
+        .searchForTransactions()
+        .txType('appl')
+        .notePrefix(notePrefix)
+        .minRound(minRound)
+        .limit(100)
+
+      if (nextToken) {
+        search.nextToken(nextToken)
+      }
+
+      const response = await search.do()
+      const txns = response.transactions || []
+      nextToken = response.nextToken
+
+      for (const txn of txns) {
+        if (txn.createdApplicationIndex) {
+          discovered.push(BigInt(txn.createdApplicationIndex))
+        }
+      }
+
+      if (!nextToken) break
+    }
+
+    return discovered
+  }
+
+  // Testnet/mainnet: discover apps via note prefix search
+  const loadDiscoveredApps = async () => {
+    const algorand = getAlgorandClient(networkId)
+    const status = await algorand.client.algod.status().do()
+    const currentRound = BigInt(status.lastRound)
+
+    const appIds = await discoverByNotePrefix()
+
+    interface MatchedApp {
+      appId: bigint
+      finalized: boolean
+      endRound: bigint
+      asaId: bigint
+    }
+    const matched: MatchedApp[] = []
+
+    for (const appId of appIds) {
+      try {
+        const appInfo = await algorand.client.algod.getApplicationByID(Number(appId)).do()
+        const globalState = appInfo.params?.globalState
+        if (!globalState) continue
+
+        const parsed = parseGlobalState(globalState)
+        if (!isSignZeroOpinion(parsed)) continue
+
+        const initialized = parsed.init === 1n
+        if (!initialized) continue
+
+        matched.push({
+          appId,
+          finalized: parsed.finalized === 1n,
+          endRound: parsed.end as bigint,
+          asaId: parsed.asa as bigint,
+        })
+      } catch {
+        // App may have been deleted
+      }
+    }
+
+    return { matched, currentRound }
+  }
+
   const loadOpinions = async () => {
     setLoading(true)
     setError(null)
 
     try {
       const algorand = getAlgorandClient(networkId)
-      const loaded: OpinionSummary[] = []
 
-      const status = await algorand.client.algod.status().do()
-      const currentRound = BigInt(status.lastRound)
-
-      interface MatchedApp {
-        appId: bigint
-        finalized: boolean
-        endRound: bigint
-        asaId: bigint
-      }
-      const matched: MatchedApp[] = []
-      let nextToken: string | undefined
-
-      do {
-        const searchParams = algorand.client.indexer.searchForApplications().limit(100)
-        if (nextToken) {
-          searchParams.nextToken(nextToken)
-        }
-
-        const response = await searchParams.do()
-        const apps = response.applications || []
-        nextToken = response.nextToken
-
-        for (const app of apps) {
-          const globalState = app.params?.globalState
-          if (!globalState) continue
-
-          const parsed = parseGlobalState(globalState)
-          if (!isSignZeroOpinion(parsed)) continue
-
-          const initialized = parsed.init === 1n
-          if (!initialized) continue
-
-          matched.push({
-            appId: BigInt(app.id),
-            finalized: parsed.finalized === 1n,
-            endRound: parsed.end as bigint,
-            asaId: parsed.asa as bigint,
-          })
-        }
-      } while (nextToken)
+      const { matched, currentRound } =
+        networkId === 'localnet' ? await scanAllApps() : await loadDiscoveredApps()
 
       matched.sort((a, b) => (b.appId > a.appId ? 1 : -1))
+
+      const loaded: OpinionSummary[] = []
 
       for (const app of matched) {
         try {
@@ -121,7 +217,7 @@ export function OpinionList({ networkId, onViewOpinion, authorFilter }: OpinionL
         }
       }
 
-      if (loaded.length > 0) {
+      if (loaded.length > 0 && networkId !== 'localnet') {
         const authors = [...new Set(loaded.map((p) => p.author).filter(Boolean))]
         const nfdResults = await batchLookupNFD(authors)
 
@@ -135,8 +231,12 @@ export function OpinionList({ networkId, onViewOpinion, authorFilter }: OpinionL
       setOpinions(loaded)
       setPage(0)
     } catch (err) {
-      console.error('Failed to load opinions from indexer:', err)
-      setError('Failed to load opinions. Indexer may not be available.')
+      console.error('Failed to load opinions:', err)
+      setError(
+        networkId === 'localnet'
+          ? 'Failed to load opinions. Indexer may not be available.'
+          : 'Failed to load opinions.'
+      )
     } finally {
       setLoading(false)
     }
@@ -151,7 +251,7 @@ export function OpinionList({ networkId, onViewOpinion, authorFilter }: OpinionL
     return (
       <div className="text-center py-8">
         <div className="animate-spin w-6 h-6 border-2 border-[var(--accent-green)] border-t-transparent mx-auto mb-2" />
-        <p className="text-[var(--text-secondary)] text-sm">Loading opinions from indexer...</p>
+        <p className="text-[var(--text-secondary)] text-sm">Loading opinions...</p>
       </div>
     )
   }
@@ -176,9 +276,11 @@ export function OpinionList({ networkId, onViewOpinion, authorFilter }: OpinionL
         <p className="text-[var(--text-secondary)]">
           {authorFilter
             ? 'No opinions found by this author.'
-            : 'No opinions found on the blockchain yet.'}
+            : networkId === 'localnet'
+              ? 'No opinions found on the blockchain yet.'
+              : 'No opinions discovered yet. Create one or use Find Opinion to look up by App ID, ASA ID, or Author.'}
         </p>
-        {!authorFilter && (
+        {!authorFilter && networkId === 'localnet' && (
           <p className="text-[var(--text-muted)] text-sm mt-1">Create one to get started!</p>
         )}
       </div>

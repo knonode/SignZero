@@ -1,5 +1,6 @@
 import { useWallet } from '@txnlab/use-wallet-react'
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { lookupNFD, truncateAddress } from '../utils/nfd'
 
 export function ConnectWallet() {
@@ -55,46 +56,49 @@ export function ConnectWallet() {
         Connect Wallet
       </button>
 
-      {showModal && (
-        <div className="fixed inset-0 bg-[var(--bg-overlay)] flex items-center justify-center z-50">
-          <div className="bg-[var(--bg-surface)] border border-[var(--border)] p-6 max-w-sm w-full mx-4">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold">Connect Wallet</h2>
-              <button
-                onClick={() => setShowModal(false)}
-                className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-              >
-                X
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              {wallets.map((wallet) => (
+      {showModal && createPortal(
+        <div className="fixed inset-0 z-[100] bg-[var(--bg-overlay)] overflow-y-auto" onClick={() => setShowModal(false)}>
+          <div className="min-h-full flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-[var(--bg-surface)] border border-[var(--border)] p-6 max-w-sm w-full">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold">Connect Wallet</h2>
                 <button
-                  key={wallet.id}
-                  onClick={async () => {
-                    await wallet.connect()
-                    setShowModal(false)
-                  }}
-                  disabled={wallet.isConnected}
-                  className="w-full flex items-center gap-4 p-4 bg-[var(--bg-subtle)] hover:bg-[var(--bg-hover)] transition-colors disabled:opacity-50 border border-[var(--border)]"
+                  onClick={() => setShowModal(false)}
+                  className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                 >
-                  {wallet.metadata.icon && (
-                    <img
-                      src={wallet.metadata.icon}
-                      alt={wallet.metadata.name}
-                      className="w-8 h-8"
-                    />
-                  )}
-                  <span className="font-medium">{wallet.metadata.name}</span>
-                  {wallet.isConnected && (
-                    <span className="ml-auto text-xs text-[var(--accent-green)]">Connected</span>
-                  )}
+                  X
                 </button>
-              ))}
+              </div>
+
+              <div className="space-y-3">
+                {wallets.map((wallet) => (
+                  <button
+                    key={wallet.id}
+                    onClick={async () => {
+                      await wallet.connect()
+                      setShowModal(false)
+                    }}
+                    disabled={wallet.isConnected}
+                    className="w-full flex items-center gap-4 p-4 bg-[var(--bg-subtle)] hover:bg-[var(--bg-hover)] transition-colors disabled:opacity-50 border border-[var(--border)]"
+                  >
+                    {wallet.metadata.icon && (
+                      <img
+                        src={wallet.metadata.icon}
+                        alt={wallet.metadata.name}
+                        className="w-8 h-8"
+                      />
+                    )}
+                    <span className="font-medium">{wallet.metadata.name}</span>
+                    {wallet.isConnected && (
+                      <span className="ml-auto text-xs text-[var(--accent-green)]">Connected</span>
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )

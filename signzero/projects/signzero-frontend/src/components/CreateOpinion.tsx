@@ -3,7 +3,11 @@ import { useWallet } from '@txnlab/use-wallet-react'
 import { getAlgorandClient } from '../utils/algorand'
 import type { NetworkId } from '../utils/algorand'
 import { SignZeroFactory } from '../contracts/SignZeroClient'
+import { useToast } from './Toast'
 import { microAlgo } from '@algorandfoundation/algokit-utils'
+
+const encoder = new TextEncoder()
+const byteLength = (s: string) => encoder.encode(s).byteLength
 
 const OPINION_TYPES = [
   'Petition',
@@ -26,6 +30,7 @@ interface CreateOpinionProps {
 
 export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
   const { activeAddress, transactionSigner } = useWallet()
+  const { addToast, updateToast } = useToast()
   const [title, setTitle] = useState('')
   const [text, setText] = useState('')
   const [durationDays, setDurationDays] = useState(7)
@@ -49,6 +54,8 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
     setLoading(true)
     setError(null)
 
+    const toastId = addToast('Step 1/2: Approve app creation in your wallet (~0.001A fee)', 'loading')
+
     try {
       const algorand = getAlgorandClient(networkId)
 
@@ -59,12 +66,15 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
         defaultSender: activeAddress,
       })
 
-      // Create the application
+      // Create the application with a note prefix for indexer discovery
       const { appClient, result } = await factory.send.create.createApplication({
         args: {},
+        note: 'signzero:v1',
       })
 
       console.log('App created with ID:', result.appId)
+
+      updateToast(toastId, 'Step 2/2: Approve funding (20 ALGO) and initialization (~0.002A fees)', 'loading')
 
       // Calculate duration in rounds (~3.3 seconds per round)
       const roundsPerDay = Math.floor((24 * 60 * 60) / 3.3)
@@ -101,10 +111,13 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
       const asaId = initResult.returns?.[0]
       console.log('Opinion initialized with ASA ID:', asaId)
 
+      updateToast(toastId, 'Opinion created successfully!', 'success')
       onCreated(result.appId)
     } catch (err) {
       console.error('Error creating opinion:', err)
-      setError(err instanceof Error ? err.message : 'Failed to create opinion')
+      const msg = err instanceof Error ? err.message : 'Failed to create opinion'
+      updateToast(toastId, msg, 'error')
+      setError(msg)
     } finally {
       setLoading(false)
     }
@@ -143,9 +156,10 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
             <input
               type="text"
               value={customType}
-              onChange={(e) => setCustomType(e.target.value)}
-              placeholder="Enter custom type (max 32 characters)"
-              maxLength={32}
+              onChange={(e) => {
+                if (byteLength(e.target.value) <= 32) setCustomType(e.target.value)
+              }}
+              placeholder="Enter custom type (max 32 bytes)"
               required
               className="w-full mt-2 px-4 py-3 bg-[var(--bg-surface)] border border-[var(--border)] focus:outline-none focus:border-[var(--accent-green)]"
             />
@@ -157,14 +171,15 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
           <input
             type="text"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Enter title (max 32 characters)"
-            maxLength={32}
+            onChange={(e) => {
+              if (byteLength(e.target.value) <= 32) setTitle(e.target.value)
+            }}
+            placeholder="Enter title (max 32 bytes)"
             required
             className="w-full px-4 py-3 bg-[var(--bg-surface)] border border-[var(--border)] focus:outline-none focus:border-[var(--accent-green)]"
           />
-          <p className={`text-xs mt-1 ${32 - title.length <= 5 ? 'text-[var(--accent-yellow)]' : 'text-[var(--text-secondary)]'}`}>
-            {32 - title.length} characters remaining
+          <p className={`text-xs mt-1 ${32 - byteLength(title) <= 5 ? 'text-[var(--accent-yellow)]' : 'text-[var(--text-secondary)]'}`}>
+            {32 - byteLength(title)} bytes remaining
           </p>
         </div>
 
@@ -172,15 +187,16 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
           <label className="block text-sm font-medium mb-2">Description</label>
           <textarea
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => {
+              if (byteLength(e.target.value) <= 32768) setText(e.target.value)
+            }}
             placeholder="Describe your opinion..."
             rows={6}
-            maxLength={2000}
             required
             className="w-full px-4 py-3 bg-[var(--bg-surface)] border border-[var(--border)] focus:outline-none focus:border-[var(--accent-green)] resize-none"
           />
-          <p className={`text-xs mt-1 ${2000 - text.length <= 100 ? 'text-[var(--accent-yellow)]' : 'text-[var(--text-secondary)]'}`}>
-            {2000 - text.length} characters remaining
+          <p className={`text-xs mt-1 ${32768 - byteLength(text) <= 500 ? 'text-[var(--accent-yellow)]' : 'text-[var(--text-secondary)]'}`}>
+            {(32768 - byteLength(text)).toLocaleString()} bytes remaining
           </p>
         </div>
 
@@ -189,13 +205,14 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
           <input
             type="url"
             value={url}
-            onChange={(e) => setUrl(e.target.value)}
+            onChange={(e) => {
+              if (byteLength(e.target.value) <= 96) setUrl(e.target.value)
+            }}
             placeholder="https://your-website.com"
-            maxLength={96}
             className="w-full px-4 py-3 bg-[var(--bg-surface)] border border-[var(--border)] focus:outline-none focus:border-[var(--accent-green)]"
           />
-          <p className="text-xs text-[var(--text-secondary)] mt-1">
-            Optional website or reference link (max 96 characters)
+          <p className={`text-xs mt-1 ${96 - byteLength(url) <= 10 ? 'text-[var(--accent-yellow)]' : 'text-[var(--text-secondary)]'}`}>
+            Optional link ({96 - byteLength(url)} bytes remaining)
           </p>
         </div>
 
@@ -242,7 +259,7 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
 
         <button
           type="submit"
-          disabled={loading || !title || !text || (selectedType === 'Other' && !customType.trim())}
+          disabled={loading || !title || !text || byteLength(title) > 32 || byteLength(text) > 32768 || (selectedType === 'Other' && !customType.trim())}
           className="w-full py-4 bg-[var(--bg-accent)] text-[var(--text-inverse)] hover:bg-[var(--accent-green)] disabled:bg-[var(--bg-disabled)] disabled:text-[var(--text-secondary)] disabled:cursor-not-allowed font-medium text-lg transition-colors"
         >
           {loading ? 'Creating Opinion...' : 'Create Opinion (20 ALGO)'}
