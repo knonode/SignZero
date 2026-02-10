@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { useWallet } from '@txnlab/use-wallet-react'
+import { useWallet, useNetwork } from '@txnlab/use-wallet-react'
 import { NetworkId as WalletNetworkId } from '@txnlab/use-wallet'
 import { ConnectWallet } from './components/ConnectWallet'
 import { CreateOpinion } from './components/CreateOpinion'
@@ -33,7 +33,8 @@ const LOOKUP_MODES: { mode: LookupMode; label: string }[] = [
 ]
 
 function App() {
-  const { activeAddress, activeWallet, setActiveNetwork } = useWallet()
+  const { activeAddress, activeWallet } = useWallet()
+  const { setActiveNetwork } = useNetwork()
   const { theme, toggleTheme } = useTheme()
   const [networkId, setNetworkId] = useState<NetworkId>(
     (import.meta.env.VITE_NETWORK || 'localnet') as NetworkId
@@ -150,9 +151,7 @@ function App() {
             onClick={() => setView('home')}
             className="flex items-center gap-3 hover:opacity-80 transition-opacity"
           >
-            <div className="w-10 h-10 bg-[var(--bg-accent)] flex items-center justify-center">
-              <span className="text-xl font-bold text-[var(--text-inverse)]">0</span>
-            </div>
+            <img src="/android-chrome-192x192.png" alt="SignZero" className="w-10 h-10" />
             <span className="text-xl font-bold text-[var(--text-primary)]">
               SignZero
             </span>
