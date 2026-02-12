@@ -318,13 +318,13 @@ export async function checkAllGates(
 
   if ((config.flags & GATE_ASA_HOLD) && config.asaHoldIds?.length) {
     promises.push(
-      checkAsaHolding(address, config.asaHoldIds, networkId).then((r) => results.push(...r))
+      checkAsaHolding(address, config.asaHoldIds, networkId).then((r) => { results.push(...r) })
     )
   }
 
   if ((config.flags & GATE_ASA_DENY) && config.asaDenyIds?.length) {
     promises.push(
-      checkAsaDeny(address, config.asaDenyIds, networkId).then((r) => results.push(...r))
+      checkAsaDeny(address, config.asaDenyIds, networkId).then((r) => { results.push(...r) })
     )
   }
 
@@ -335,25 +335,25 @@ export async function checkAllGates(
         (config.flags & GATE_BAL_MIN) ? config.balMin : undefined,
         (config.flags & GATE_BAL_MAX) ? config.balMax : undefined,
         networkId
-      ).then((r) => results.push(...r))
+      ).then((r) => { results.push(...r) })
     )
   }
 
   if (config.flags & GATE_ONLINE) {
     promises.push(
-      checkOnlineStatus(address, networkId).then((r) => results.push(r))
+      checkOnlineStatus(address, networkId).then((r) => { results.push(r) })
     )
   }
 
   if ((config.flags & GATE_AGE) && config.minAge) {
     promises.push(
-      checkAccountAge(address, config.minAge, networkId).then((r) => results.push(r))
+      checkAccountAge(address, config.minAge, networkId).then((r) => { results.push(r) })
     )
   }
 
   if ((config.flags & GATE_NFD) && config.nfdRoot) {
     promises.push(
-      checkNfdSegment(address, config.nfdRoot).then((r) => results.push(r))
+      checkNfdSegment(address, config.nfdRoot).then((r) => { results.push(r) })
     )
   }
 
