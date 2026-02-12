@@ -20,6 +20,8 @@ const OPINION_TYPES = [
   'Statement',
   'Charter',
   'Consensus',
+  'Essay',
+  'Thesis',
   'Other',
 ] as const
 
