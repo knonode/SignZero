@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useWallet } from '@txnlab/use-wallet-react'
 import { getAlgorandClient } from '../utils/algorand'
 import type { NetworkId } from '../utils/algorand'
-import { SignZeroFactory } from '../contracts/SignZeroClient'
+import { SignZeroFactory, type SignZeroComposer } from '../contracts/SignZeroClient'
 import { useToast } from './Toast'
 import { microAlgo } from '@algorandfoundation/algokit-utils'
 import { GATE_ASA_HOLD, GATE_ASA_DENY, GATE_BAL_MIN, GATE_BAL_MAX, GATE_ONLINE, GATE_AGE, GATE_NFD, packUint64Array } from '../utils/gates'
@@ -118,7 +118,7 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
       updateToast(toastId, `Step 2/2: Approve funding (20 ALGO) + ${numChunks} chunk write${numChunks > 1 ? 's' : ''} (~${feeEstimate}A fees)`, 'loading')
 
       // Build atomic group: payment + initialize + writeChunk(s)
-      let group = appClient
+      let group: SignZeroComposer<any> = appClient
         .newGroup()
         .addTransaction(
           await algorand.createTransaction.payment({
