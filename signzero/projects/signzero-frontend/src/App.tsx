@@ -34,10 +34,10 @@ const LOOKUP_MODES: { mode: LookupMode; label: string }[] = [
 
 function App() {
   const { activeAddress, activeWallet } = useWallet()
-  const { setActiveNetwork } = useNetwork()
+  const { activeNetwork, setActiveNetwork } = useNetwork()
   const { theme, toggleTheme } = useTheme()
   const [networkId, setNetworkId] = useState<NetworkId>(
-    (import.meta.env.VITE_NETWORK || 'localnet') as NetworkId
+    (activeNetwork || import.meta.env.VITE_NETWORK || 'localnet') as NetworkId
   )
   const [view, setView] = useState<View>('home')
   const [viewAppId, setViewAppId] = useState<bigint | null>(null)

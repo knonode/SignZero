@@ -29,7 +29,7 @@ export class SignZero extends Contract {
   initialized = GlobalState<boolean>({ key: 'init' })
 
   // Box storage for opinion text
-  opinionText = Box<bytes>({ key: 'text' })
+  opinionText = Box<string>({ key: 'text' })
 
   /**
    * Creates the application (empty state)
@@ -40,20 +40,21 @@ export class SignZero extends Contract {
   }
 
   /**
-   * Initializes the opinion with funding, title, text, duration, type, and optional URL
+   * Initializes the opinion with funding, title, text size, duration, type, and optional URL
    * Must be called with a payment transaction in the same group
+   * Text content is written separately via writeChunk calls (also in the same group)
    * @param title - Opinion title (becomes ASA name, max 32 chars)
-   * @param text - Opinion content (stored in box, max 32KB)
+   * @param textSize - Size of opinion text in bytes (box is pre-allocated)
    * @param duration - Duration in rounds (min 25,000)
    * @param opinionType - Opinion type (exactly 32 bytes, right-padded with zeros)
    * @param url - Optional author website (max 96 bytes)
    */
-  public initialize(title: string, text: bytes, duration: uint64, opinionType: bytes, url: string): uint64 {
+  public initialize(title: string, textSize: uint64, duration: uint64, opinionType: bytes, url: string): uint64 {
     // Verify not already initialized
     assert(!this.initialized.value, 'Already initialized')
 
     // Verify minimum funding (payment must be first txn in group)
-    assert(Global.groupSize === Uint64(2), 'Expected payment + app call')
+    assert(Global.groupSize >= Uint64(2), 'Expected payment + app call')
     const payment = gtxn.PaymentTxn(Uint64(0))
     assert(
       payment.receiver.bytes === Global.currentApplicationAddress.bytes,
@@ -68,9 +69,9 @@ export class SignZero extends Contract {
     assert(title !== '', 'Title cannot be empty')
     assert(Bytes(title).length <= Uint64(32), 'Title exceeds 32 bytes')
 
-    // Verify text is not empty and within box size limit
-    assert(text !== Bytes(''), 'Text cannot be empty')
-    assert(text.length <= Uint64(32768), 'Text exceeds 32KB')
+    // Verify text size
+    assert(textSize > Uint64(0), 'Text size must be > 0')
+    assert(textSize <= Uint64(32768), 'Text exceeds 32KB')
 
     // Verify opinion type: must be exactly 32 bytes and not all zeros
     assert(opinionType.length === Uint64(32), 'Opinion type must be 32 bytes')
@@ -85,8 +86,8 @@ export class SignZero extends Contract {
     this.startRound.value = startRound
     this.endRound.value = endRound
 
-    // Store opinion text in box
-    this.opinionText.value = text
+    // Create empty box for opinion text (content written via writeChunk)
+    this.opinionText.create({ size: textSize })
 
     // Create opinion ASA
     const asaResult = itxn
@@ -112,6 +113,23 @@ export class SignZero extends Contract {
     this.initialized.value = true
 
     return asaId
+  }
+
+  /**
+   * Writes a chunk of opinion text into the pre-allocated box
+   * Must be called after initialize and before finalize
+   * @param offset - Byte offset within the box to start writing
+   * @param data - Chunk of text data to write
+   */
+  public writeChunk(offset: uint64, data: bytes): void {
+    assert(this.initialized.value, 'Not initialized')
+    assert(!this.finalized.value, 'Opinion already finalized')
+
+    // Only the author can write chunks
+    assert(Txn.sender === Asset(this.asaId.value).reserve, 'Only author can write')
+
+    // Write chunk into box (AVM validates bounds automatically)
+    this.opinionText.replace(offset, data)
   }
 
   /**

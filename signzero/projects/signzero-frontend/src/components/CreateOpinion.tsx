@@ -74,8 +74,6 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
 
       console.log('App created with ID:', result.appId)
 
-      updateToast(toastId, 'Step 2/2: Approve funding (20 ALGO) and initialization (~0.002A fees)', 'loading')
-
       // Calculate duration in rounds (~3.3 seconds per round)
       const roundsPerDay = Math.floor((24 * 60 * 60) / 3.3)
       const duration = BigInt(durationDays * roundsPerDay)
@@ -84,10 +82,24 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
       const opinionType = new Uint8Array(32)
       new TextEncoder().encodeInto(opinionTypeName.trim(), opinionType)
 
-      // Initialize the opinion with funding
+      // Encode text and split into ~2000-byte chunks
       const textBytes = new TextEncoder().encode(text)
+      const CHUNK_SIZE = 2000
+      const chunks: { offset: number; data: Uint8Array }[] = []
+      for (let i = 0; i < textBytes.length; i += CHUNK_SIZE) {
+        chunks.push({
+          offset: i,
+          data: textBytes.slice(i, i + CHUNK_SIZE),
+        })
+      }
 
-      const initResult = await appClient
+      const numChunks = chunks.length
+      const totalTxns = 2 + numChunks // payment + initialize + N writeChunks
+      const feeEstimate = (0.001 * (totalTxns + 1)).toFixed(3) // +1 for inner txn
+      updateToast(toastId, `Step 2/2: Approve funding (20 ALGO) + ${numChunks} chunk write${numChunks > 1 ? 's' : ''} (~${feeEstimate}A fees)`, 'loading')
+
+      // Build atomic group: payment + initialize + writeChunk(s)
+      let group = appClient
         .newGroup()
         .addTransaction(
           await algorand.createTransaction.payment({
@@ -99,14 +111,25 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
         .initialize({
           args: {
             title,
-            text: textBytes,
+            textSize: BigInt(textBytes.length),
             duration,
             opinionType,
             url,
           },
           extraFee: microAlgo(1000),
         })
-        .send()
+
+      // Append writeChunk calls for each chunk
+      for (const chunk of chunks) {
+        group = group.writeChunk({
+          args: {
+            offset: BigInt(chunk.offset),
+            data: chunk.data,
+          },
+        })
+      }
+
+      const initResult = await group.send()
 
       const asaId = initResult.returns?.[0]
       console.log('Opinion initialized with ASA ID:', asaId)
@@ -241,12 +264,12 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
               <span>20 ALGO</span>
             </div>
             <div className="flex justify-between">
-              <span>Transaction fees</span>
-              <span>~0.003 ALGO</span>
+              <span>Transaction fees ({Math.ceil(byteLength(text) / 2000) || 1} chunk{Math.ceil(byteLength(text) / 2000) > 1 ? 's' : ''})</span>
+              <span>~{(0.003 + Math.ceil(byteLength(text) / 2000) * 0.001).toFixed(3)} ALGO</span>
             </div>
             <div className="flex justify-between pt-2 border-t border-[var(--border)] text-[var(--text-primary)]">
               <span>Total</span>
-              <span>~20.003 ALGO</span>
+              <span>~{(20.003 + Math.ceil(byteLength(text) / 2000) * 0.001).toFixed(3)} ALGO</span>
             </div>
           </div>
         </div>
