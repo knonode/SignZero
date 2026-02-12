@@ -5,6 +5,7 @@ import type { NetworkId } from '../utils/algorand'
 import { SignZeroFactory } from '../contracts/SignZeroClient'
 import { useToast } from './Toast'
 import { microAlgo } from '@algorandfoundation/algokit-utils'
+import { GATE_ASA_HOLD, GATE_ASA_DENY, GATE_BAL_MIN, GATE_BAL_MAX, GATE_ONLINE, GATE_AGE, GATE_NFD, packUint64Array } from '../utils/gates'
 
 const encoder = new TextEncoder()
 const byteLength = (s: string) => encoder.encode(s).byteLength
@@ -41,6 +42,22 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
   const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Gate config state
+  const [gatesOpen, setGatesOpen] = useState(false)
+  const [gateAsaHold, setGateAsaHold] = useState(false)
+  const [asaHoldIds, setAsaHoldIds] = useState<string[]>([''])
+  const [gateAsaDeny, setGateAsaDeny] = useState(false)
+  const [asaDenyIds, setAsaDenyIds] = useState<string[]>([''])
+  const [gateBalMin, setGateBalMin] = useState(false)
+  const [balMinAlgo, setBalMinAlgo] = useState('')
+  const [gateBalMax, setGateBalMax] = useState(false)
+  const [balMaxAlgo, setBalMaxAlgo] = useState('')
+  const [gateOnline, setGateOnline] = useState(false)
+  const [gateAge, setGateAge] = useState(false)
+  const [minAgeDays, setMinAgeDays] = useState('')
+  const [gateNfd, setGateNfd] = useState(false)
+  const [nfdRoot, setNfdRoot] = useState('')
 
   const opinionTypeName = selectedType === 'Other' ? customType : selectedType
 
@@ -135,6 +152,45 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
 
       const asaId = initResult.returns?.[0]
       console.log('Opinion initialized with ASA ID:', asaId)
+
+      // Set gates if any are enabled
+      const flags = (gateAsaHold ? GATE_ASA_HOLD : 0)
+        | (gateAsaDeny ? GATE_ASA_DENY : 0)
+        | (gateBalMin ? GATE_BAL_MIN : 0)
+        | (gateBalMax ? GATE_BAL_MAX : 0)
+        | (gateOnline ? GATE_ONLINE : 0)
+        | (gateAge ? GATE_AGE : 0)
+        | (gateNfd ? GATE_NFD : 0)
+
+      if (flags > 0) {
+        updateToast(toastId, 'Setting signer requirements...', 'loading')
+
+        const holdIds = gateAsaHold
+          ? asaHoldIds.filter((id) => id.trim()).map((id) => BigInt(id.trim()))
+          : []
+        const denyIds = gateAsaDeny
+          ? asaDenyIds.filter((id) => id.trim()).map((id) => BigInt(id.trim()))
+          : []
+
+        const roundsPerDay = Math.floor((24 * 60 * 60) / 3.3)
+
+        await appClient.send.setGates({
+          args: {
+            flags: BigInt(flags),
+            balMin: gateBalMin ? BigInt(Math.floor(parseFloat(balMinAlgo) * 1_000_000)) : 0n,
+            balMax: gateBalMax ? BigInt(Math.floor(parseFloat(balMaxAlgo) * 1_000_000)) : 0n,
+            minAge: gateAge ? BigInt(parseInt(minAgeDays) * roundsPerDay) : 0n,
+            asaHold: packUint64Array(holdIds),
+            asaDeny: packUint64Array(denyIds),
+            nfdRoot: gateNfd ? nfdRoot.trim() : '',
+          },
+          boxReferences: [
+            ...(gateAsaHold ? ['gate_hold'] : []),
+            ...(gateAsaDeny ? ['gate_deny'] : []),
+            ...(gateNfd ? ['gate_nfd'] : []),
+          ],
+        })
+      }
 
       updateToast(toastId, 'Opinion created successfully!', 'success')
       onCreated(result.appId)
@@ -256,6 +312,166 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
             Opinion will be active for {durationDays} day{durationDays > 1 ? 's' : ''} (~
             {Math.floor((durationDays * 24 * 60 * 60) / 3.3).toLocaleString()} rounds)
           </p>
+        </div>
+
+        {/* Signer Requirements (Gates) */}
+        <div className="border border-[var(--border)]">
+          <button
+            type="button"
+            onClick={() => setGatesOpen(!gatesOpen)}
+            className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-[var(--bg-surface)] transition-colors"
+          >
+            <span className="font-medium">Signer Requirements (Optional)</span>
+            <span className="text-[var(--text-secondary)]">{gatesOpen ? '\u25B2' : '\u25BC'}</span>
+          </button>
+
+          {gatesOpen && (
+            <div className="px-4 pb-4 space-y-4 border-t border-[var(--border)] pt-4">
+              <p className="text-xs text-[var(--text-secondary)]">
+                Restrict who can sign this opinion. Requirements are checked before signing. Once set, they cannot be changed.
+              </p>
+
+              {/* ASA Must Hold */}
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={gateAsaHold} onChange={(e) => setGateAsaHold(e.target.checked)} className="accent-[var(--accent-green)]" />
+                  <span className="text-sm">Must hold ASA(s)</span>
+                </label>
+                {gateAsaHold && (
+                  <div className="ml-6 space-y-2">
+                    {asaHoldIds.map((id, i) => (
+                      <div key={i} className="flex gap-2">
+                        <input
+                          type="text"
+                          value={id}
+                          onChange={(e) => { const next = [...asaHoldIds]; next[i] = e.target.value; setAsaHoldIds(next) }}
+                          placeholder="ASA ID"
+                          className="flex-1 px-3 py-2 text-sm bg-[var(--bg-surface)] border border-[var(--border)] focus:outline-none focus:border-[var(--accent-green)]"
+                        />
+                        {asaHoldIds.length > 1 && (
+                          <button type="button" onClick={() => setAsaHoldIds(asaHoldIds.filter((_, j) => j !== i))} className="px-2 text-[var(--accent-red)] hover:bg-[var(--bg-surface)]">x</button>
+                        )}
+                      </div>
+                    ))}
+                    <button type="button" onClick={() => setAsaHoldIds([...asaHoldIds, ''])} className="text-sm text-[var(--accent-cyan)] hover:underline">+ Add ASA</button>
+                  </div>
+                )}
+              </div>
+
+              {/* ASA Must NOT Hold */}
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={gateAsaDeny} onChange={(e) => setGateAsaDeny(e.target.checked)} className="accent-[var(--accent-green)]" />
+                  <span className="text-sm">Must NOT hold ASA(s)</span>
+                </label>
+                {gateAsaDeny && (
+                  <div className="ml-6 space-y-2">
+                    {asaDenyIds.map((id, i) => (
+                      <div key={i} className="flex gap-2">
+                        <input
+                          type="text"
+                          value={id}
+                          onChange={(e) => { const next = [...asaDenyIds]; next[i] = e.target.value; setAsaDenyIds(next) }}
+                          placeholder="ASA ID"
+                          className="flex-1 px-3 py-2 text-sm bg-[var(--bg-surface)] border border-[var(--border)] focus:outline-none focus:border-[var(--accent-green)]"
+                        />
+                        {asaDenyIds.length > 1 && (
+                          <button type="button" onClick={() => setAsaDenyIds(asaDenyIds.filter((_, j) => j !== i))} className="px-2 text-[var(--accent-red)] hover:bg-[var(--bg-surface)]">x</button>
+                        )}
+                      </div>
+                    ))}
+                    <button type="button" onClick={() => setAsaDenyIds([...asaDenyIds, ''])} className="text-sm text-[var(--accent-cyan)] hover:underline">+ Add ASA</button>
+                  </div>
+                )}
+              </div>
+
+              {/* NFD Segment */}
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={gateNfd} onChange={(e) => setGateNfd(e.target.checked)} className="accent-[var(--accent-green)]" />
+                  <span className="text-sm">NFD segment required</span>
+                </label>
+                {gateNfd && (
+                  <div className="ml-6">
+                    <input
+                      type="text"
+                      value={nfdRoot}
+                      onChange={(e) => setNfdRoot(e.target.value)}
+                      placeholder="Root NFD (e.g. dao.algo)"
+                      className="w-full px-3 py-2 text-sm bg-[var(--bg-surface)] border border-[var(--border)] focus:outline-none focus:border-[var(--accent-green)]"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Account Age */}
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={gateAge} onChange={(e) => setGateAge(e.target.checked)} className="accent-[var(--accent-green)]" />
+                  <span className="text-sm">Minimum account age</span>
+                </label>
+                {gateAge && (
+                  <div className="ml-6">
+                    <input
+                      type="number"
+                      value={minAgeDays}
+                      onChange={(e) => setMinAgeDays(e.target.value)}
+                      placeholder="Days"
+                      min={1}
+                      className="w-full px-3 py-2 text-sm bg-[var(--bg-surface)] border border-[var(--border)] focus:outline-none focus:border-[var(--accent-green)]"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Online Validator */}
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={gateOnline} onChange={(e) => setGateOnline(e.target.checked)} className="accent-[var(--accent-green)]" />
+                <span className="text-sm">Must be online validator (consensus participant)</span>
+              </label>
+
+              {/* ALGO Balance */}
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={gateBalMin} onChange={(e) => setGateBalMin(e.target.checked)} className="accent-[var(--accent-green)]" />
+                  <span className="text-sm">Minimum ALGO balance</span>
+                </label>
+                {gateBalMin && (
+                  <div className="ml-6">
+                    <input
+                      type="number"
+                      value={balMinAlgo}
+                      onChange={(e) => setBalMinAlgo(e.target.value)}
+                      placeholder="ALGO"
+                      min={0}
+                      step="0.1"
+                      className="w-full px-3 py-2 text-sm bg-[var(--bg-surface)] border border-[var(--border)] focus:outline-none focus:border-[var(--accent-green)]"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={gateBalMax} onChange={(e) => setGateBalMax(e.target.checked)} className="accent-[var(--accent-green)]" />
+                  <span className="text-sm">Maximum ALGO balance</span>
+                </label>
+                {gateBalMax && (
+                  <div className="ml-6">
+                    <input
+                      type="number"
+                      value={balMaxAlgo}
+                      onChange={(e) => setBalMaxAlgo(e.target.value)}
+                      placeholder="ALGO"
+                      min={0}
+                      step="0.1"
+                      className="w-full px-3 py-2 text-sm bg-[var(--bg-surface)] border border-[var(--border)] focus:outline-none focus:border-[var(--accent-green)]"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="bg-[var(--bg-card)] border border-[var(--border)] p-4">

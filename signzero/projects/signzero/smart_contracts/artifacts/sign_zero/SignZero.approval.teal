@@ -3,21 +3,21 @@
 
 // @algorandfoundation/algorand-typescript/arc4/index.d.ts::Contract.approvalProgram() -> uint64:
 main:
-    intcblock 0 1 2 8
-    bytecblock "init" "finalized" "end" "asa" "start" "text" 0x151f7c75
+    intcblock 0 1 8 2
+    bytecblock "init" "finalized" "asa" "end" "gf" "start" "text" 0x151f7c75 "gate_hold" "gate_deny" "gate_nfd"
     // smart_contracts/sign_zero/contract.algo.ts:23
     // export class SignZero extends Contract {
     txn OnCompletion
     !
     assert // OnCompletion must be NoOp
     txn ApplicationID
-    bz main_create_NoOp@10
-    pushbytess 0x6cffa84b 0x11ee4219 0xa46848f7 0xee0484c0 0x23d8b7ce 0x2696511d // method "initialize(string,uint64,uint64,byte[],string)uint64", method "writeChunk(uint64,byte[])void", method "sign()void", method "extend(uint64)void", method "finalize()void", method "getInfo()(uint64,uint64,uint64,bool,bool)"
+    bz main_create_NoOp@11
+    pushbytess 0x6cffa84b 0x11ee4219 0x1a491c5f 0xa46848f7 0xee0484c0 0x23d8b7ce 0x2696511d // method "initialize(string,uint64,uint64,byte[],string)uint64", method "writeChunk(uint64,byte[])void", method "setGates(uint64,uint64,uint64,uint64,byte[],byte[],string)void", method "sign()void", method "extend(uint64)void", method "finalize()void", method "getInfo()(uint64,uint64,uint64,bool,bool)"
     txna ApplicationArgs 0
-    match initialize writeChunk sign extend finalize getInfo
+    match initialize writeChunk setGates sign extend finalize getInfo
     err
 
-main_create_NoOp@10:
+main_create_NoOp@11:
     // smart_contracts/sign_zero/contract.algo.ts:23
     // export class SignZero extends Contract {
     pushbytes 0xb8447b36 // method "createApplication()void"
@@ -31,18 +31,18 @@ createApplication:
     // smart_contracts/sign_zero/contract.algo.ts:29
     // initialized = GlobalState<boolean>({ key: 'init' })
     bytec_0 // "init"
-    // smart_contracts/sign_zero/contract.algo.ts:38
+    // smart_contracts/sign_zero/contract.algo.ts:49
     // this.initialized.value = false
     intc_0 // 0
     app_global_put
     // smart_contracts/sign_zero/contract.algo.ts:27
     // finalized = GlobalState<boolean>({ key: 'finalized' })
     bytec_1 // "finalized"
-    // smart_contracts/sign_zero/contract.algo.ts:39
+    // smart_contracts/sign_zero/contract.algo.ts:50
     // this.finalized.value = false
     intc_0 // 0
     app_global_put
-    // smart_contracts/sign_zero/contract.algo.ts:37
+    // smart_contracts/sign_zero/contract.algo.ts:48
     // public createApplication(): void {
     intc_1 // 1
     return
@@ -50,13 +50,13 @@ createApplication:
 
 // smart_contracts/sign_zero/contract.algo.ts::SignZero.initialize[routing]() -> void:
 initialize:
-    // smart_contracts/sign_zero/contract.algo.ts:52
+    // smart_contracts/sign_zero/contract.algo.ts:63
     // public initialize(title: string, textSize: uint64, duration: uint64, opinionType: bytes, url: string): uint64 {
     txna ApplicationArgs 1
     dup
     intc_0 // 0
     extract_uint16 // on error: invalid array length header
-    intc_2 // 2
+    intc_3 // 2
     +
     dig 1
     len
@@ -66,14 +66,14 @@ initialize:
     txna ApplicationArgs 2
     dup
     len
-    intc_3 // 8
+    intc_2 // 8
     ==
     assert // invalid number of bytes for arc4.uint64
     btoi
     txna ApplicationArgs 3
     dup
     len
-    intc_3 // 8
+    intc_2 // 8
     ==
     assert // invalid number of bytes for arc4.uint64
     btoi
@@ -81,7 +81,7 @@ initialize:
     dup
     intc_0 // 0
     extract_uint16 // on error: invalid array length header
-    intc_2 // 2
+    intc_3 // 2
     +
     dig 1
     len
@@ -92,32 +92,32 @@ initialize:
     dup
     intc_0 // 0
     extract_uint16 // on error: invalid array length header
-    intc_2 // 2
+    intc_3 // 2
     +
     dig 1
     len
     ==
     assert // invalid number of bytes for arc4.dynamic_array<arc4.uint8>
     extract 2 0
-    // smart_contracts/sign_zero/contract.algo.ts:54
+    // smart_contracts/sign_zero/contract.algo.ts:65
     // assert(!this.initialized.value, 'Already initialized')
     intc_0 // 0
     // smart_contracts/sign_zero/contract.algo.ts:29
     // initialized = GlobalState<boolean>({ key: 'init' })
     bytec_0 // "init"
-    // smart_contracts/sign_zero/contract.algo.ts:54
+    // smart_contracts/sign_zero/contract.algo.ts:65
     // assert(!this.initialized.value, 'Already initialized')
     app_global_get_ex
     assert // check GlobalState exists
     !
     assert // Already initialized
-    // smart_contracts/sign_zero/contract.algo.ts:57
+    // smart_contracts/sign_zero/contract.algo.ts:68
     // assert(Global.groupSize >= Uint64(2), 'Expected payment + app call')
     global GroupSize
-    intc_2 // 2
+    intc_3 // 2
     >=
     assert // Expected payment + app call
-    // smart_contracts/sign_zero/contract.algo.ts:58
+    // smart_contracts/sign_zero/contract.algo.ts:69
     // const payment = gtxn.PaymentTxn(Uint64(0))
     intc_0 // 0
     gtxns TypeEnum
@@ -125,107 +125,107 @@ initialize:
     ==
     assert // transaction type is pay
     intc_0 // 0
-    // smart_contracts/sign_zero/contract.algo.ts:60
+    // smart_contracts/sign_zero/contract.algo.ts:71
     // payment.receiver.bytes === Global.currentApplicationAddress.bytes,
     gtxns Receiver
     global CurrentApplicationAddress
     ==
-    // smart_contracts/sign_zero/contract.algo.ts:59-62
+    // smart_contracts/sign_zero/contract.algo.ts:70-73
     // assert(
     //   payment.receiver.bytes === Global.currentApplicationAddress.bytes,
     //   'Payment must go to app'
     // )
     assert // Payment must go to app
-    // smart_contracts/sign_zero/contract.algo.ts:58
+    // smart_contracts/sign_zero/contract.algo.ts:69
     // const payment = gtxn.PaymentTxn(Uint64(0))
     intc_0 // 0
-    // smart_contracts/sign_zero/contract.algo.ts:63
+    // smart_contracts/sign_zero/contract.algo.ts:74
     // assert(payment.amount >= Uint64(MIN_FUNDING), 'Minimum 20 ALGO required')
     gtxns Amount
     pushint 20000000 // 20000000
     >=
     assert // Minimum 20 ALGO required
-    // smart_contracts/sign_zero/contract.algo.ts:66
+    // smart_contracts/sign_zero/contract.algo.ts:77
     // assert(duration >= Uint64(MIN_DURATION), 'Minimum duration 25,000 rounds')
     dig 2
     pushint 25000 // 25000
     >=
     assert // Minimum duration 25,000 rounds
-    // smart_contracts/sign_zero/contract.algo.ts:69
+    // smart_contracts/sign_zero/contract.algo.ts:80
     // assert(title !== '', 'Title cannot be empty')
     dig 4
     pushbytes ""
     !=
     assert // Title cannot be empty
-    // smart_contracts/sign_zero/contract.algo.ts:70
+    // smart_contracts/sign_zero/contract.algo.ts:81
     // assert(Bytes(title).length <= Uint64(32), 'Title exceeds 32 bytes')
     dig 4
     len
     pushint 32 // 32
     <=
     assert // Title exceeds 32 bytes
-    // smart_contracts/sign_zero/contract.algo.ts:73
+    // smart_contracts/sign_zero/contract.algo.ts:84
     // assert(textSize > Uint64(0), 'Text size must be > 0')
     dig 3
     assert // Text size must be > 0
-    // smart_contracts/sign_zero/contract.algo.ts:74
+    // smart_contracts/sign_zero/contract.algo.ts:85
     // assert(textSize <= Uint64(32768), 'Text exceeds 32KB')
     dig 3
     pushint 32768 // 32768
     <=
     assert // Text exceeds 32KB
-    // smart_contracts/sign_zero/contract.algo.ts:77
+    // smart_contracts/sign_zero/contract.algo.ts:88
     // assert(opinionType.length === Uint64(32), 'Opinion type must be 32 bytes')
     dig 1
     len
     pushint 32 // 32
     ==
     assert // Opinion type must be 32 bytes
-    // smart_contracts/sign_zero/contract.algo.ts:78
+    // smart_contracts/sign_zero/contract.algo.ts:89
     // assert(opinionType !== op.bzero(32), 'Opinion type cannot be empty')
     pushint 32 // 32
     bzero
     dig 2
     !=
     assert // Opinion type cannot be empty
-    // smart_contracts/sign_zero/contract.algo.ts:81
+    // smart_contracts/sign_zero/contract.algo.ts:92
     // assert(Bytes(url).length <= Uint64(96), 'URL exceeds 96 bytes')
     dup
     len
     pushint 96 // 96
     <=
     assert // URL exceeds 96 bytes
-    // smart_contracts/sign_zero/contract.algo.ts:84
+    // smart_contracts/sign_zero/contract.algo.ts:95
     // const startRound: uint64 = Global.round
     global Round
-    // smart_contracts/sign_zero/contract.algo.ts:85
+    // smart_contracts/sign_zero/contract.algo.ts:96
     // const endRound: uint64 = startRound + duration
     dup
     uncover 4
     +
     // smart_contracts/sign_zero/contract.algo.ts:25
     // startRound = GlobalState<uint64>({ key: 'start' })
-    bytec 4 // "start"
-    // smart_contracts/sign_zero/contract.algo.ts:86
+    bytec 5 // "start"
+    // smart_contracts/sign_zero/contract.algo.ts:97
     // this.startRound.value = startRound
     uncover 2
     app_global_put
     // smart_contracts/sign_zero/contract.algo.ts:26
     // endRound = GlobalState<uint64>({ key: 'end' })
-    bytec_2 // "end"
-    // smart_contracts/sign_zero/contract.algo.ts:87
+    bytec_3 // "end"
+    // smart_contracts/sign_zero/contract.algo.ts:98
     // this.endRound.value = endRound
     swap
     app_global_put
-    // smart_contracts/sign_zero/contract.algo.ts:32
+    // smart_contracts/sign_zero/contract.algo.ts:38
     // opinionText = Box<string>({ key: 'text' })
-    bytec 5 // "text"
-    // smart_contracts/sign_zero/contract.algo.ts:90
+    bytec 6 // "text"
+    // smart_contracts/sign_zero/contract.algo.ts:101
     // this.opinionText.create({ size: textSize })
     uncover 3
     box_create
     pop
-    // smart_contracts/sign_zero/contract.algo.ts:93-107
+    // smart_contracts/sign_zero/contract.algo.ts:104-118
     // const asaResult = itxn
     //   .assetConfig({
     //     total: Uint64(0),
@@ -242,16 +242,16 @@ initialize:
     //   })
     //   .submit()
     itxn_begin
-    // smart_contracts/sign_zero/contract.algo.ts:101
+    // smart_contracts/sign_zero/contract.algo.ts:112
     // manager: Global.currentApplicationAddress,
     global CurrentApplicationAddress
-    // smart_contracts/sign_zero/contract.algo.ts:102
+    // smart_contracts/sign_zero/contract.algo.ts:113
     // reserve: Txn.sender, // Opinion author stored here
     txn Sender
-    // smart_contracts/sign_zero/contract.algo.ts:103
+    // smart_contracts/sign_zero/contract.algo.ts:114
     // freeze: Account(),
     global ZeroAddress
-    // smart_contracts/sign_zero/contract.algo.ts:104
+    // smart_contracts/sign_zero/contract.algo.ts:115
     // clawback: Account(),
     dup
     itxn_field ConfigAssetClawback
@@ -260,20 +260,20 @@ initialize:
     itxn_field ConfigAssetManager
     itxn_field ConfigAssetURL
     itxn_field ConfigAssetMetadataHash
-    // smart_contracts/sign_zero/contract.algo.ts:98
+    // smart_contracts/sign_zero/contract.algo.ts:109
     // unitName: 'ZERO',
     pushbytes "ZERO"
     itxn_field ConfigAssetUnitName
     itxn_field ConfigAssetName
-    // smart_contracts/sign_zero/contract.algo.ts:96
+    // smart_contracts/sign_zero/contract.algo.ts:107
     // decimals: Uint64(0),
     intc_0 // 0
     itxn_field ConfigAssetDecimals
-    // smart_contracts/sign_zero/contract.algo.ts:95
+    // smart_contracts/sign_zero/contract.algo.ts:106
     // total: Uint64(0),
     intc_0 // 0
     itxn_field ConfigAssetTotal
-    // smart_contracts/sign_zero/contract.algo.ts:93-106
+    // smart_contracts/sign_zero/contract.algo.ts:104-117
     // const asaResult = itxn
     //   .assetConfig({
     //     total: Uint64(0),
@@ -290,11 +290,11 @@ initialize:
     //   })
     pushint 3 // 3
     itxn_field TypeEnum
-    // smart_contracts/sign_zero/contract.algo.ts:105
+    // smart_contracts/sign_zero/contract.algo.ts:116
     // fee: Uint64(0),
     intc_0 // 0
     itxn_field Fee
-    // smart_contracts/sign_zero/contract.algo.ts:93-107
+    // smart_contracts/sign_zero/contract.algo.ts:104-118
     // const asaResult = itxn
     //   .assetConfig({
     //     total: Uint64(0),
@@ -314,22 +314,22 @@ initialize:
     itxn CreatedAssetID
     // smart_contracts/sign_zero/contract.algo.ts:28
     // asaId = GlobalState<uint64>({ key: 'asa' })
-    bytec_3 // "asa"
-    // smart_contracts/sign_zero/contract.algo.ts:110
+    bytec_2 // "asa"
+    // smart_contracts/sign_zero/contract.algo.ts:121
     // this.asaId.value = asaId
     dig 1
     app_global_put
     // smart_contracts/sign_zero/contract.algo.ts:29
     // initialized = GlobalState<boolean>({ key: 'init' })
     bytec_0 // "init"
-    // smart_contracts/sign_zero/contract.algo.ts:113
+    // smart_contracts/sign_zero/contract.algo.ts:124
     // this.initialized.value = true
     intc_1 // 1
     app_global_put
-    // smart_contracts/sign_zero/contract.algo.ts:52
+    // smart_contracts/sign_zero/contract.algo.ts:63
     // public initialize(title: string, textSize: uint64, duration: uint64, opinionType: bytes, url: string): uint64 {
     itob
-    bytec 6 // 0x151f7c75
+    bytec 7 // 0x151f7c75
     swap
     concat
     log
@@ -339,12 +339,12 @@ initialize:
 
 // smart_contracts/sign_zero/contract.algo.ts::SignZero.writeChunk[routing]() -> void:
 writeChunk:
-    // smart_contracts/sign_zero/contract.algo.ts:124
+    // smart_contracts/sign_zero/contract.algo.ts:135
     // public writeChunk(offset: uint64, data: bytes): void {
     txna ApplicationArgs 1
     dup
     len
-    intc_3 // 8
+    intc_2 // 8
     ==
     assert // invalid number of bytes for arc4.uint64
     btoi
@@ -352,44 +352,44 @@ writeChunk:
     dup
     intc_0 // 0
     extract_uint16 // on error: invalid array length header
-    intc_2 // 2
+    intc_3 // 2
     +
     dig 1
     len
     ==
     assert // invalid number of bytes for arc4.dynamic_array<arc4.uint8>
     extract 2 0
-    // smart_contracts/sign_zero/contract.algo.ts:125
+    // smart_contracts/sign_zero/contract.algo.ts:136
     // assert(this.initialized.value, 'Not initialized')
     intc_0 // 0
     // smart_contracts/sign_zero/contract.algo.ts:29
     // initialized = GlobalState<boolean>({ key: 'init' })
     bytec_0 // "init"
-    // smart_contracts/sign_zero/contract.algo.ts:125
+    // smart_contracts/sign_zero/contract.algo.ts:136
     // assert(this.initialized.value, 'Not initialized')
     app_global_get_ex
     assert // check GlobalState exists
     assert // Not initialized
-    // smart_contracts/sign_zero/contract.algo.ts:126
+    // smart_contracts/sign_zero/contract.algo.ts:137
     // assert(!this.finalized.value, 'Opinion already finalized')
     intc_0 // 0
     // smart_contracts/sign_zero/contract.algo.ts:27
     // finalized = GlobalState<boolean>({ key: 'finalized' })
     bytec_1 // "finalized"
-    // smart_contracts/sign_zero/contract.algo.ts:126
+    // smart_contracts/sign_zero/contract.algo.ts:137
     // assert(!this.finalized.value, 'Opinion already finalized')
     app_global_get_ex
     assert // check GlobalState exists
     !
     assert // Opinion already finalized
-    // smart_contracts/sign_zero/contract.algo.ts:129
+    // smart_contracts/sign_zero/contract.algo.ts:140
     // assert(Txn.sender === Asset(this.asaId.value).reserve, 'Only author can write')
     txn Sender
     intc_0 // 0
     // smart_contracts/sign_zero/contract.algo.ts:28
     // asaId = GlobalState<uint64>({ key: 'asa' })
-    bytec_3 // "asa"
-    // smart_contracts/sign_zero/contract.algo.ts:129
+    bytec_2 // "asa"
+    // smart_contracts/sign_zero/contract.algo.ts:140
     // assert(Txn.sender === Asset(this.asaId.value).reserve, 'Only author can write')
     app_global_get_ex
     assert // check GlobalState exists
@@ -397,64 +397,359 @@ writeChunk:
     assert // asset exists
     ==
     assert // Only author can write
-    // smart_contracts/sign_zero/contract.algo.ts:32
+    // smart_contracts/sign_zero/contract.algo.ts:38
     // opinionText = Box<string>({ key: 'text' })
-    bytec 5 // "text"
-    // smart_contracts/sign_zero/contract.algo.ts:132
+    bytec 6 // "text"
+    // smart_contracts/sign_zero/contract.algo.ts:143
     // this.opinionText.replace(offset, data)
     cover 2
     box_replace
-    // smart_contracts/sign_zero/contract.algo.ts:124
+    // smart_contracts/sign_zero/contract.algo.ts:135
     // public writeChunk(offset: uint64, data: bytes): void {
     intc_1 // 1
     return
 
 
-// smart_contracts/sign_zero/contract.algo.ts::SignZero.sign[routing]() -> void:
-sign:
-    // smart_contracts/sign_zero/contract.algo.ts:141
+// smart_contracts/sign_zero/contract.algo.ts::SignZero.setGates[routing]() -> void:
+setGates:
+    // smart_contracts/sign_zero/contract.algo.ts:157
+    // public setGates(flags: uint64, balMin: uint64, balMax: uint64, minAge: uint64, asaHold: bytes, asaDeny: bytes, nfdRoot: string): void {
+    txna ApplicationArgs 1
+    dup
+    len
+    intc_2 // 8
+    ==
+    assert // invalid number of bytes for arc4.uint64
+    btoi
+    txna ApplicationArgs 2
+    dup
+    len
+    intc_2 // 8
+    ==
+    assert // invalid number of bytes for arc4.uint64
+    btoi
+    txna ApplicationArgs 3
+    dup
+    len
+    intc_2 // 8
+    ==
+    assert // invalid number of bytes for arc4.uint64
+    btoi
+    txna ApplicationArgs 4
+    dup
+    len
+    intc_2 // 8
+    ==
+    assert // invalid number of bytes for arc4.uint64
+    btoi
+    txna ApplicationArgs 5
+    dup
+    intc_0 // 0
+    extract_uint16 // on error: invalid array length header
+    intc_3 // 2
+    +
+    dig 1
+    len
+    ==
+    assert // invalid number of bytes for arc4.dynamic_array<arc4.uint8>
+    extract 2 0
+    txna ApplicationArgs 6
+    dup
+    intc_0 // 0
+    extract_uint16 // on error: invalid array length header
+    intc_3 // 2
+    +
+    dig 1
+    len
+    ==
+    assert // invalid number of bytes for arc4.dynamic_array<arc4.uint8>
+    extract 2 0
+    txna ApplicationArgs 7
+    dup
+    intc_0 // 0
+    extract_uint16 // on error: invalid array length header
+    intc_3 // 2
+    +
+    dig 1
+    len
+    ==
+    assert // invalid number of bytes for arc4.dynamic_array<arc4.uint8>
+    extract 2 0
+    // smart_contracts/sign_zero/contract.algo.ts:158
     // assert(this.initialized.value, 'Not initialized')
     intc_0 // 0
     // smart_contracts/sign_zero/contract.algo.ts:29
     // initialized = GlobalState<boolean>({ key: 'init' })
     bytec_0 // "init"
-    // smart_contracts/sign_zero/contract.algo.ts:141
+    // smart_contracts/sign_zero/contract.algo.ts:158
     // assert(this.initialized.value, 'Not initialized')
     app_global_get_ex
     assert // check GlobalState exists
     assert // Not initialized
-    // smart_contracts/sign_zero/contract.algo.ts:144
+    // smart_contracts/sign_zero/contract.algo.ts:161
+    // assert(Txn.sender === Asset(this.asaId.value).reserve, 'Only author can set gates')
+    txn Sender
+    intc_0 // 0
+    // smart_contracts/sign_zero/contract.algo.ts:28
+    // asaId = GlobalState<uint64>({ key: 'asa' })
+    bytec_2 // "asa"
+    // smart_contracts/sign_zero/contract.algo.ts:161
+    // assert(Txn.sender === Asset(this.asaId.value).reserve, 'Only author can set gates')
+    app_global_get_ex
+    assert // check GlobalState exists
+    asset_params_get AssetReserve
+    assert // asset exists
+    ==
+    assert // Only author can set gates
+    // smart_contracts/sign_zero/contract.algo.ts:164
+    // assert(!this.gFlags.hasValue || this.gFlags.value === Uint64(0), 'Gates already set')
+    intc_0 // 0
+    // smart_contracts/sign_zero/contract.algo.ts:32
+    // gFlags = GlobalState<uint64>({ key: 'gf' })      // bitfield: bit0=asaHold, bit1=asaDeny, bit2=balMin, bit3=balMax, bit4=online, bit5=age, bit6=nfd
+    bytec 4 // "gf"
+    // smart_contracts/sign_zero/contract.algo.ts:164
+    // assert(!this.gFlags.hasValue || this.gFlags.value === Uint64(0), 'Gates already set')
+    app_global_get_ex
+    bury 1
+    bz setGates_bool_true@3
+    intc_0 // 0
+    // smart_contracts/sign_zero/contract.algo.ts:32
+    // gFlags = GlobalState<uint64>({ key: 'gf' })      // bitfield: bit0=asaHold, bit1=asaDeny, bit2=balMin, bit3=balMax, bit4=online, bit5=age, bit6=nfd
+    bytec 4 // "gf"
+    // smart_contracts/sign_zero/contract.algo.ts:164
+    // assert(!this.gFlags.hasValue || this.gFlags.value === Uint64(0), 'Gates already set')
+    app_global_get_ex
+    assert // check GlobalState exists
+    bnz setGates_bool_false@4
+
+setGates_bool_true@3:
+    intc_1 // 1
+
+setGates_bool_merge@5:
+    // smart_contracts/sign_zero/contract.algo.ts:164
+    // assert(!this.gFlags.hasValue || this.gFlags.value === Uint64(0), 'Gates already set')
+    assert // Gates already set
+    // smart_contracts/sign_zero/contract.algo.ts:167
+    // assert(flags > Uint64(0), 'Must enable at least one gate')
+    dig 6
+    dup
+    assert // Must enable at least one gate
+    // smart_contracts/sign_zero/contract.algo.ts:32
+    // gFlags = GlobalState<uint64>({ key: 'gf' })      // bitfield: bit0=asaHold, bit1=asaDeny, bit2=balMin, bit3=balMax, bit4=online, bit5=age, bit6=nfd
+    bytec 4 // "gf"
+    // smart_contracts/sign_zero/contract.algo.ts:170
+    // this.gFlags.value = flags
+    dig 1
+    app_global_put
+    // smart_contracts/sign_zero/contract.algo.ts:173
+    // if (flags & Uint64(4)) {  // bit2 = balMin
+    pushint 4 // 4
+    &
+    bz setGates_after_if_else@7
+    // smart_contracts/sign_zero/contract.algo.ts:33
+    // gBalMin = GlobalState<uint64>({ key: 'gbmin' })   // min ALGO balance (microAlgos)
+    pushbytes "gbmin"
+    // smart_contracts/sign_zero/contract.algo.ts:174
+    // this.gBalMin.value = balMin
+    dig 6
+    app_global_put
+
+setGates_after_if_else@7:
+    // smart_contracts/sign_zero/contract.algo.ts:176
+    // if (flags & Uint64(8)) {  // bit3 = balMax
+    dig 6
+    intc_2 // 8
+    &
+    bz setGates_after_if_else@9
+    // smart_contracts/sign_zero/contract.algo.ts:34
+    // gBalMax = GlobalState<uint64>({ key: 'gbmax' })   // max ALGO balance (microAlgos)
+    pushbytes "gbmax"
+    // smart_contracts/sign_zero/contract.algo.ts:177
+    // this.gBalMax.value = balMax
+    dig 5
+    app_global_put
+
+setGates_after_if_else@9:
+    // smart_contracts/sign_zero/contract.algo.ts:179
+    // if (flags & Uint64(32)) {  // bit5 = age
+    dig 6
+    pushint 32 // 32
+    &
+    bz setGates_after_if_else@11
+    // smart_contracts/sign_zero/contract.algo.ts:35
+    // gMinAge = GlobalState<uint64>({ key: 'gage' })    // min account age in rounds
+    pushbytes "gage"
+    // smart_contracts/sign_zero/contract.algo.ts:180
+    // this.gMinAge.value = minAge
+    dig 4
+    app_global_put
+
+setGates_after_if_else@11:
+    // smart_contracts/sign_zero/contract.algo.ts:184
+    // if (flags & Uint64(1)) {  // bit0 = asaHold
+    dig 6
+    intc_1 // 1
+    &
+    bz setGates_after_if_else@13
+    // smart_contracts/sign_zero/contract.algo.ts:185
+    // assert(asaHold.length > Uint64(0), 'asaHold cannot be empty')
+    dig 2
+    dup
+    len
+    dup
+    assert // asaHold cannot be empty
+    // smart_contracts/sign_zero/contract.algo.ts:186
+    // assert(asaHold.length % Uint64(8) === Uint64(0), 'asaHold must be N*8 bytes')
+    dup
+    intc_2 // 8
+    %
+    !
+    assert // asaHold must be N*8 bytes
+    // smart_contracts/sign_zero/contract.algo.ts:41
+    // gateHold = Box<bytes>({ key: 'gate_hold' })  // packed uint64[] ASA IDs signer must hold
+    bytec 8 // "gate_hold"
+    // smart_contracts/sign_zero/contract.algo.ts:187
+    // this.gateHold.create({ size: asaHold.length })
+    swap
+    box_create
+    pop
+    // smart_contracts/sign_zero/contract.algo.ts:41
+    // gateHold = Box<bytes>({ key: 'gate_hold' })  // packed uint64[] ASA IDs signer must hold
+    bytec 8 // "gate_hold"
+    // smart_contracts/sign_zero/contract.algo.ts:188
+    // this.gateHold.replace(0, asaHold)
+    intc_0 // 0
+    uncover 2
+    box_replace
+
+setGates_after_if_else@13:
+    // smart_contracts/sign_zero/contract.algo.ts:190
+    // if (flags & Uint64(2)) {  // bit1 = asaDeny
+    dig 6
+    intc_3 // 2
+    &
+    bz setGates_after_if_else@15
+    // smart_contracts/sign_zero/contract.algo.ts:191
+    // assert(asaDeny.length > Uint64(0), 'asaDeny cannot be empty')
+    dig 1
+    dup
+    len
+    dup
+    assert // asaDeny cannot be empty
+    // smart_contracts/sign_zero/contract.algo.ts:192
+    // assert(asaDeny.length % Uint64(8) === Uint64(0), 'asaDeny must be N*8 bytes')
+    dup
+    intc_2 // 8
+    %
+    !
+    assert // asaDeny must be N*8 bytes
+    // smart_contracts/sign_zero/contract.algo.ts:42
+    // gateDeny = Box<bytes>({ key: 'gate_deny' })  // packed uint64[] ASA IDs signer must NOT hold
+    bytec 9 // "gate_deny"
+    // smart_contracts/sign_zero/contract.algo.ts:193
+    // this.gateDeny.create({ size: asaDeny.length })
+    swap
+    box_create
+    pop
+    // smart_contracts/sign_zero/contract.algo.ts:42
+    // gateDeny = Box<bytes>({ key: 'gate_deny' })  // packed uint64[] ASA IDs signer must NOT hold
+    bytec 9 // "gate_deny"
+    // smart_contracts/sign_zero/contract.algo.ts:194
+    // this.gateDeny.replace(0, asaDeny)
+    intc_0 // 0
+    uncover 2
+    box_replace
+
+setGates_after_if_else@15:
+    // smart_contracts/sign_zero/contract.algo.ts:196
+    // if (flags & Uint64(64)) {  // bit6 = nfd
+    dig 6
+    pushint 64 // 64
+    &
+    bz setGates_after_if_else@17
+    // smart_contracts/sign_zero/contract.algo.ts:197
+    // assert(nfdRoot !== '', 'nfdRoot cannot be empty')
+    dupn 2
+    pushbytes ""
+    !=
+    assert // nfdRoot cannot be empty
+    // smart_contracts/sign_zero/contract.algo.ts:198
+    // this.gateNfd.create({ size: Bytes(nfdRoot).length })
+    dup
+    len
+    // smart_contracts/sign_zero/contract.algo.ts:43
+    // gateNfd = Box<string>({ key: 'gate_nfd' })   // NFD root name (e.g., "dao.algo")
+    bytec 10 // "gate_nfd"
+    // smart_contracts/sign_zero/contract.algo.ts:198
+    // this.gateNfd.create({ size: Bytes(nfdRoot).length })
+    swap
+    box_create
+    pop
+    // smart_contracts/sign_zero/contract.algo.ts:43
+    // gateNfd = Box<string>({ key: 'gate_nfd' })   // NFD root name (e.g., "dao.algo")
+    bytec 10 // "gate_nfd"
+    // smart_contracts/sign_zero/contract.algo.ts:199
+    // this.gateNfd.replace(0, Bytes(nfdRoot))
+    intc_0 // 0
+    uncover 2
+    box_replace
+
+setGates_after_if_else@17:
+    // smart_contracts/sign_zero/contract.algo.ts:157
+    // public setGates(flags: uint64, balMin: uint64, balMax: uint64, minAge: uint64, asaHold: bytes, asaDeny: bytes, nfdRoot: string): void {
+    intc_1 // 1
+    return
+
+setGates_bool_false@4:
+    intc_0 // 0
+    b setGates_bool_merge@5
+
+
+// smart_contracts/sign_zero/contract.algo.ts::SignZero.sign[routing]() -> void:
+sign:
+    // smart_contracts/sign_zero/contract.algo.ts:209
+    // assert(this.initialized.value, 'Not initialized')
+    intc_0 // 0
+    // smart_contracts/sign_zero/contract.algo.ts:29
+    // initialized = GlobalState<boolean>({ key: 'init' })
+    bytec_0 // "init"
+    // smart_contracts/sign_zero/contract.algo.ts:209
+    // assert(this.initialized.value, 'Not initialized')
+    app_global_get_ex
+    assert // check GlobalState exists
+    assert // Not initialized
+    // smart_contracts/sign_zero/contract.algo.ts:212
     // assert(Global.round <= this.endRound.value, 'Opinion has ended')
     global Round
     intc_0 // 0
     // smart_contracts/sign_zero/contract.algo.ts:26
     // endRound = GlobalState<uint64>({ key: 'end' })
-    bytec_2 // "end"
-    // smart_contracts/sign_zero/contract.algo.ts:144
+    bytec_3 // "end"
+    // smart_contracts/sign_zero/contract.algo.ts:212
     // assert(Global.round <= this.endRound.value, 'Opinion has ended')
     app_global_get_ex
     assert // check GlobalState exists
     <=
     assert // Opinion has ended
-    // smart_contracts/sign_zero/contract.algo.ts:145
+    // smart_contracts/sign_zero/contract.algo.ts:213
     // assert(!this.finalized.value, 'Opinion already finalized')
     intc_0 // 0
     // smart_contracts/sign_zero/contract.algo.ts:27
     // finalized = GlobalState<boolean>({ key: 'finalized' })
     bytec_1 // "finalized"
-    // smart_contracts/sign_zero/contract.algo.ts:145
+    // smart_contracts/sign_zero/contract.algo.ts:213
     // assert(!this.finalized.value, 'Opinion already finalized')
     app_global_get_ex
     assert // check GlobalState exists
     !
     assert // Opinion already finalized
-    // smart_contracts/sign_zero/contract.algo.ts:148
+    // smart_contracts/sign_zero/contract.algo.ts:216
     // assert(Global.groupSize === Uint64(2), 'Expected app call + ASA opt-in')
     global GroupSize
-    intc_2 // 2
+    intc_3 // 2
     ==
     assert // Expected app call + ASA opt-in
-    // smart_contracts/sign_zero/contract.algo.ts:151
+    // smart_contracts/sign_zero/contract.algo.ts:219
     // const optIn = gtxn.AssetTransferTxn(Uint64(1))
     intc_1 // 1
     gtxns TypeEnum
@@ -462,46 +757,46 @@ sign:
     ==
     assert // transaction type is axfer
     intc_1 // 1
-    // smart_contracts/sign_zero/contract.algo.ts:152
+    // smart_contracts/sign_zero/contract.algo.ts:220
     // assert(optIn.xferAsset.id === this.asaId.value, 'Must opt into opinion ASA')
     gtxns XferAsset
     intc_0 // 0
     // smart_contracts/sign_zero/contract.algo.ts:28
     // asaId = GlobalState<uint64>({ key: 'asa' })
-    bytec_3 // "asa"
-    // smart_contracts/sign_zero/contract.algo.ts:152
+    bytec_2 // "asa"
+    // smart_contracts/sign_zero/contract.algo.ts:220
     // assert(optIn.xferAsset.id === this.asaId.value, 'Must opt into opinion ASA')
     app_global_get_ex
     assert // check GlobalState exists
     ==
     assert // Must opt into opinion ASA
-    // smart_contracts/sign_zero/contract.algo.ts:151
+    // smart_contracts/sign_zero/contract.algo.ts:219
     // const optIn = gtxn.AssetTransferTxn(Uint64(1))
     intc_1 // 1
-    // smart_contracts/sign_zero/contract.algo.ts:153
+    // smart_contracts/sign_zero/contract.algo.ts:221
     // assert(optIn.assetAmount === Uint64(0), 'Must be opt-in (amount 0)')
     gtxns AssetAmount
     !
     assert // Must be opt-in (amount 0)
-    // smart_contracts/sign_zero/contract.algo.ts:151
+    // smart_contracts/sign_zero/contract.algo.ts:219
     // const optIn = gtxn.AssetTransferTxn(Uint64(1))
     intc_1 // 1
-    // smart_contracts/sign_zero/contract.algo.ts:154
+    // smart_contracts/sign_zero/contract.algo.ts:222
     // assert(optIn.sender.bytes === Txn.sender.bytes, 'Opt-in sender must match caller')
     gtxns Sender
     txn Sender
     ==
     assert // Opt-in sender must match caller
-    // smart_contracts/sign_zero/contract.algo.ts:151
+    // smart_contracts/sign_zero/contract.algo.ts:219
     // const optIn = gtxn.AssetTransferTxn(Uint64(1))
     intc_1 // 1
-    // smart_contracts/sign_zero/contract.algo.ts:155
+    // smart_contracts/sign_zero/contract.algo.ts:223
     // assert(optIn.assetReceiver.bytes === Txn.sender.bytes, 'Opt-in receiver must match caller')
     gtxns AssetReceiver
     txn Sender
     ==
     assert // Opt-in receiver must match caller
-    // smart_contracts/sign_zero/contract.algo.ts:139
+    // smart_contracts/sign_zero/contract.algo.ts:207
     // public sign(): void {
     intc_1 // 1
     return
@@ -509,37 +804,37 @@ sign:
 
 // smart_contracts/sign_zero/contract.algo.ts::SignZero.extend[routing]() -> void:
 extend:
-    // smart_contracts/sign_zero/contract.algo.ts:162
+    // smart_contracts/sign_zero/contract.algo.ts:230
     // public extend(newEndRound: uint64): void {
     txna ApplicationArgs 1
     dup
     len
-    intc_3 // 8
+    intc_2 // 8
     ==
     assert // invalid number of bytes for arc4.uint64
     btoi
-    // smart_contracts/sign_zero/contract.algo.ts:164
+    // smart_contracts/sign_zero/contract.algo.ts:232
     // assert(this.initialized.value, 'Not initialized')
     intc_0 // 0
     // smart_contracts/sign_zero/contract.algo.ts:29
     // initialized = GlobalState<boolean>({ key: 'init' })
     bytec_0 // "init"
-    // smart_contracts/sign_zero/contract.algo.ts:164
+    // smart_contracts/sign_zero/contract.algo.ts:232
     // assert(this.initialized.value, 'Not initialized')
     app_global_get_ex
     assert // check GlobalState exists
     assert // Not initialized
-    // smart_contracts/sign_zero/contract.algo.ts:167
+    // smart_contracts/sign_zero/contract.algo.ts:235
     // const asa = Asset(this.asaId.value)
     intc_0 // 0
     // smart_contracts/sign_zero/contract.algo.ts:28
     // asaId = GlobalState<uint64>({ key: 'asa' })
-    bytec_3 // "asa"
-    // smart_contracts/sign_zero/contract.algo.ts:167
+    bytec_2 // "asa"
+    // smart_contracts/sign_zero/contract.algo.ts:235
     // const asa = Asset(this.asaId.value)
     app_global_get_ex
     assert // check GlobalState exists
-    // smart_contracts/sign_zero/contract.algo.ts:168
+    // smart_contracts/sign_zero/contract.algo.ts:236
     // assert(Txn.sender.bytes === asa.reserve.bytes, 'Only author can extend')
     txn Sender
     swap
@@ -547,25 +842,25 @@ extend:
     assert // asset exists
     ==
     assert // Only author can extend
-    // smart_contracts/sign_zero/contract.algo.ts:171
+    // smart_contracts/sign_zero/contract.algo.ts:239
     // assert(!this.finalized.value, 'Opinion already finalized')
     intc_0 // 0
     // smart_contracts/sign_zero/contract.algo.ts:27
     // finalized = GlobalState<boolean>({ key: 'finalized' })
     bytec_1 // "finalized"
-    // smart_contracts/sign_zero/contract.algo.ts:171
+    // smart_contracts/sign_zero/contract.algo.ts:239
     // assert(!this.finalized.value, 'Opinion already finalized')
     app_global_get_ex
     assert // check GlobalState exists
     !
     assert // Opinion already finalized
-    // smart_contracts/sign_zero/contract.algo.ts:174
+    // smart_contracts/sign_zero/contract.algo.ts:242
     // assert(newEndRound > this.endRound.value, 'New end must be greater')
     intc_0 // 0
     // smart_contracts/sign_zero/contract.algo.ts:26
     // endRound = GlobalState<uint64>({ key: 'end' })
-    bytec_2 // "end"
-    // smart_contracts/sign_zero/contract.algo.ts:174
+    bytec_3 // "end"
+    // smart_contracts/sign_zero/contract.algo.ts:242
     // assert(newEndRound > this.endRound.value, 'New end must be greater')
     app_global_get_ex
     assert // check GlobalState exists
@@ -574,12 +869,12 @@ extend:
     assert // New end must be greater
     // smart_contracts/sign_zero/contract.algo.ts:26
     // endRound = GlobalState<uint64>({ key: 'end' })
-    bytec_2 // "end"
-    // smart_contracts/sign_zero/contract.algo.ts:177
+    bytec_3 // "end"
+    // smart_contracts/sign_zero/contract.algo.ts:245
     // this.endRound.value = newEndRound
     swap
     app_global_put
-    // smart_contracts/sign_zero/contract.algo.ts:162
+    // smart_contracts/sign_zero/contract.algo.ts:230
     // public extend(newEndRound: uint64): void {
     intc_1 // 1
     return
@@ -587,53 +882,53 @@ extend:
 
 // smart_contracts/sign_zero/contract.algo.ts::SignZero.finalize[routing]() -> void:
 finalize:
-    // smart_contracts/sign_zero/contract.algo.ts:186
+    // smart_contracts/sign_zero/contract.algo.ts:254
     // assert(this.initialized.value, 'Not initialized')
     intc_0 // 0
     // smart_contracts/sign_zero/contract.algo.ts:29
     // initialized = GlobalState<boolean>({ key: 'init' })
     bytec_0 // "init"
-    // smart_contracts/sign_zero/contract.algo.ts:186
+    // smart_contracts/sign_zero/contract.algo.ts:254
     // assert(this.initialized.value, 'Not initialized')
     app_global_get_ex
     assert // check GlobalState exists
     assert // Not initialized
-    // smart_contracts/sign_zero/contract.algo.ts:189
+    // smart_contracts/sign_zero/contract.algo.ts:257
     // assert(Global.round > this.endRound.value, 'Opinion still active')
     global Round
     intc_0 // 0
     // smart_contracts/sign_zero/contract.algo.ts:26
     // endRound = GlobalState<uint64>({ key: 'end' })
-    bytec_2 // "end"
-    // smart_contracts/sign_zero/contract.algo.ts:189
+    bytec_3 // "end"
+    // smart_contracts/sign_zero/contract.algo.ts:257
     // assert(Global.round > this.endRound.value, 'Opinion still active')
     app_global_get_ex
     assert // check GlobalState exists
     >
     assert // Opinion still active
-    // smart_contracts/sign_zero/contract.algo.ts:192
+    // smart_contracts/sign_zero/contract.algo.ts:260
     // assert(!this.finalized.value, 'Opinion already finalized')
     intc_0 // 0
     // smart_contracts/sign_zero/contract.algo.ts:27
     // finalized = GlobalState<boolean>({ key: 'finalized' })
     bytec_1 // "finalized"
-    // smart_contracts/sign_zero/contract.algo.ts:192
+    // smart_contracts/sign_zero/contract.algo.ts:260
     // assert(!this.finalized.value, 'Opinion already finalized')
     app_global_get_ex
     assert // check GlobalState exists
     !
     assert // Opinion already finalized
-    // smart_contracts/sign_zero/contract.algo.ts:195
+    // smart_contracts/sign_zero/contract.algo.ts:263
     // const asa = Asset(this.asaId.value)
     intc_0 // 0
     // smart_contracts/sign_zero/contract.algo.ts:28
     // asaId = GlobalState<uint64>({ key: 'asa' })
-    bytec_3 // "asa"
-    // smart_contracts/sign_zero/contract.algo.ts:195
+    bytec_2 // "asa"
+    // smart_contracts/sign_zero/contract.algo.ts:263
     // const asa = Asset(this.asaId.value)
     app_global_get_ex
     assert // check GlobalState exists
-    // smart_contracts/sign_zero/contract.algo.ts:196-205
+    // smart_contracts/sign_zero/contract.algo.ts:264-273
     // itxn
     //   .assetConfig({
     //     configAsset: asa,
@@ -645,18 +940,18 @@ finalize:
     //   })
     //   .submit()
     itxn_begin
-    // smart_contracts/sign_zero/contract.algo.ts:199
+    // smart_contracts/sign_zero/contract.algo.ts:267
     // manager: Account(),
     global ZeroAddress
-    // smart_contracts/sign_zero/contract.algo.ts:200
+    // smart_contracts/sign_zero/contract.algo.ts:268
     // reserve: asa.reserve, // Keep author address
     dig 1
     asset_params_get AssetReserve
     assert // asset exists
-    // smart_contracts/sign_zero/contract.algo.ts:201
+    // smart_contracts/sign_zero/contract.algo.ts:269
     // freeze: Account(),
     global ZeroAddress
-    // smart_contracts/sign_zero/contract.algo.ts:202
+    // smart_contracts/sign_zero/contract.algo.ts:270
     // clawback: Account(),
     dup
     itxn_field ConfigAssetClawback
@@ -664,7 +959,7 @@ finalize:
     itxn_field ConfigAssetReserve
     itxn_field ConfigAssetManager
     itxn_field ConfigAsset
-    // smart_contracts/sign_zero/contract.algo.ts:196-204
+    // smart_contracts/sign_zero/contract.algo.ts:264-272
     // itxn
     //   .assetConfig({
     //     configAsset: asa,
@@ -676,11 +971,11 @@ finalize:
     //   })
     pushint 3 // 3
     itxn_field TypeEnum
-    // smart_contracts/sign_zero/contract.algo.ts:203
+    // smart_contracts/sign_zero/contract.algo.ts:271
     // fee: Uint64(0),
     intc_0 // 0
     itxn_field Fee
-    // smart_contracts/sign_zero/contract.algo.ts:196-205
+    // smart_contracts/sign_zero/contract.algo.ts:264-273
     // itxn
     //   .assetConfig({
     //     configAsset: asa,
@@ -695,11 +990,11 @@ finalize:
     // smart_contracts/sign_zero/contract.algo.ts:27
     // finalized = GlobalState<boolean>({ key: 'finalized' })
     bytec_1 // "finalized"
-    // smart_contracts/sign_zero/contract.algo.ts:208
+    // smart_contracts/sign_zero/contract.algo.ts:276
     // this.finalized.value = true
     intc_1 // 1
     app_global_put
-    // smart_contracts/sign_zero/contract.algo.ts:212
+    // smart_contracts/sign_zero/contract.algo.ts:280
     // Global.currentApplicationAddress.balance - Global.currentApplicationAddress.minBalance
     global CurrentApplicationAddress
     acct_params_get AcctBalance
@@ -709,10 +1004,10 @@ finalize:
     assert // account funded
     -
     dup
-    // smart_contracts/sign_zero/contract.algo.ts:215
+    // smart_contracts/sign_zero/contract.algo.ts:283
     // if (reward > Uint64(0)) {
     bz finalize_after_if_else@5
-    // smart_contracts/sign_zero/contract.algo.ts:216-222
+    // smart_contracts/sign_zero/contract.algo.ts:284-290
     // itxn
     //   .payment({
     //     receiver: Txn.sender,
@@ -721,13 +1016,13 @@ finalize:
     //   })
     //   .submit()
     itxn_begin
-    // smart_contracts/sign_zero/contract.algo.ts:218
+    // smart_contracts/sign_zero/contract.algo.ts:286
     // receiver: Txn.sender,
     txn Sender
     dig 1
     itxn_field Amount
     itxn_field Receiver
-    // smart_contracts/sign_zero/contract.algo.ts:216-221
+    // smart_contracts/sign_zero/contract.algo.ts:284-289
     // itxn
     //   .payment({
     //     receiver: Txn.sender,
@@ -736,11 +1031,11 @@ finalize:
     //   })
     intc_1 // 1
     itxn_field TypeEnum
-    // smart_contracts/sign_zero/contract.algo.ts:220
+    // smart_contracts/sign_zero/contract.algo.ts:288
     // fee: Uint64(0),
     intc_0 // 0
     itxn_field Fee
-    // smart_contracts/sign_zero/contract.algo.ts:216-222
+    // smart_contracts/sign_zero/contract.algo.ts:284-290
     // itxn
     //   .payment({
     //     receiver: Txn.sender,
@@ -751,7 +1046,7 @@ finalize:
     itxn_submit
 
 finalize_after_if_else@5:
-    // smart_contracts/sign_zero/contract.algo.ts:184
+    // smart_contracts/sign_zero/contract.algo.ts:252
     // public finalize(): void {
     intc_1 // 1
     return
@@ -759,57 +1054,57 @@ finalize_after_if_else@5:
 
 // smart_contracts/sign_zero/contract.algo.ts::SignZero.getInfo[routing]() -> void:
 getInfo:
-    // smart_contracts/sign_zero/contract.algo.ts:232
+    // smart_contracts/sign_zero/contract.algo.ts:300
     // this.startRound.value,
     intc_0 // 0
     // smart_contracts/sign_zero/contract.algo.ts:25
     // startRound = GlobalState<uint64>({ key: 'start' })
-    bytec 4 // "start"
-    // smart_contracts/sign_zero/contract.algo.ts:232
+    bytec 5 // "start"
+    // smart_contracts/sign_zero/contract.algo.ts:300
     // this.startRound.value,
     app_global_get_ex
     assert // check GlobalState exists
-    // smart_contracts/sign_zero/contract.algo.ts:233
+    // smart_contracts/sign_zero/contract.algo.ts:301
     // this.endRound.value,
     intc_0 // 0
     // smart_contracts/sign_zero/contract.algo.ts:26
     // endRound = GlobalState<uint64>({ key: 'end' })
-    bytec_2 // "end"
-    // smart_contracts/sign_zero/contract.algo.ts:233
+    bytec_3 // "end"
+    // smart_contracts/sign_zero/contract.algo.ts:301
     // this.endRound.value,
     app_global_get_ex
     assert // check GlobalState exists
-    // smart_contracts/sign_zero/contract.algo.ts:234
+    // smart_contracts/sign_zero/contract.algo.ts:302
     // this.asaId.value,
     intc_0 // 0
     // smart_contracts/sign_zero/contract.algo.ts:28
     // asaId = GlobalState<uint64>({ key: 'asa' })
-    bytec_3 // "asa"
-    // smart_contracts/sign_zero/contract.algo.ts:234
+    bytec_2 // "asa"
+    // smart_contracts/sign_zero/contract.algo.ts:302
     // this.asaId.value,
     app_global_get_ex
     assert // check GlobalState exists
-    // smart_contracts/sign_zero/contract.algo.ts:235
+    // smart_contracts/sign_zero/contract.algo.ts:303
     // this.finalized.value,
     intc_0 // 0
     // smart_contracts/sign_zero/contract.algo.ts:27
     // finalized = GlobalState<boolean>({ key: 'finalized' })
     bytec_1 // "finalized"
-    // smart_contracts/sign_zero/contract.algo.ts:235
+    // smart_contracts/sign_zero/contract.algo.ts:303
     // this.finalized.value,
     app_global_get_ex
     assert // check GlobalState exists
-    // smart_contracts/sign_zero/contract.algo.ts:236
+    // smart_contracts/sign_zero/contract.algo.ts:304
     // this.initialized.value,
     intc_0 // 0
     // smart_contracts/sign_zero/contract.algo.ts:29
     // initialized = GlobalState<boolean>({ key: 'init' })
     bytec_0 // "init"
-    // smart_contracts/sign_zero/contract.algo.ts:236
+    // smart_contracts/sign_zero/contract.algo.ts:304
     // this.initialized.value,
     app_global_get_ex
     assert // check GlobalState exists
-    // smart_contracts/sign_zero/contract.algo.ts:231-237
+    // smart_contracts/sign_zero/contract.algo.ts:299-305
     // return [
     //   this.startRound.value,
     //   this.endRound.value,
@@ -833,9 +1128,9 @@ getInfo:
     uncover 3
     setbit
     concat
-    // smart_contracts/sign_zero/contract.algo.ts:229
+    // smart_contracts/sign_zero/contract.algo.ts:297
     // @abimethod({ readonly: true })
-    bytec 6 // 0x151f7c75
+    bytec 7 // 0x151f7c75
     swap
     concat
     log

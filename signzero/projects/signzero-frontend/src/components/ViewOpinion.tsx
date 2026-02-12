@@ -7,6 +7,8 @@ import { lookupNFD, truncateAddress } from '../utils/nfd'
 import { decodeOpinionType, parseGlobalState, isSignZeroOpinion } from '../utils/signzero'
 import { useToast } from './Toast'
 import { microAlgo } from '@algorandfoundation/algokit-utils'
+import { readGateConfig, checkAllGates, getGateLabels } from '../utils/gates'
+import type { GateConfig, GateCheckResult } from '../utils/gates'
 
 interface ViewOpinionProps {
   appId: bigint
@@ -36,8 +38,13 @@ export function ViewOpinion({ appId, networkId }: ViewOpinionProps) {
   const [loading, setLoading] = useState(true)
   const [signing, setSigning] = useState(false)
   const [finalizing, setFinalizing] = useState(false)
+  const [extending, setExtending] = useState(false)
+  const [extendDays, setExtendDays] = useState(7)
   const [error, setError] = useState<string | null>(null)
   const [hasSigned, setHasSigned] = useState(false)
+  const [gateConfig, setGateConfig] = useState<GateConfig | null>(null)
+  const [gateResults, setGateResults] = useState<GateCheckResult[] | null>(null)
+  const [checkingGates, setCheckingGates] = useState(false)
 
   const loadOpinion = async () => {
     setLoading(true)
@@ -129,6 +136,14 @@ export function ViewOpinion({ appId, networkId }: ViewOpinionProps) {
         signatureCount,
         currentRound,
       })
+
+      // Load gate config
+      try {
+        const gates = await readGateConfig(appId, networkId)
+        setGateConfig(gates)
+      } catch {
+        setGateConfig(null)
+      }
     } catch (err) {
       console.error('Error loading opinion:', err)
       setError(err instanceof Error ? err.message : 'Failed to load opinion')
@@ -140,6 +155,32 @@ export function ViewOpinion({ appId, networkId }: ViewOpinionProps) {
   useEffect(() => {
     loadOpinion()
   }, [appId, networkId, activeAddress])
+
+  // Check gates when wallet connects and gate config is loaded
+  useEffect(() => {
+    if (!activeAddress || !gateConfig || hasSigned) {
+      setGateResults(null)
+      return
+    }
+
+    let cancelled = false
+    setCheckingGates(true)
+
+    checkAllGates(activeAddress, gateConfig, networkId)
+      .then((results) => {
+        if (!cancelled) setGateResults(results)
+      })
+      .catch(() => {
+        if (!cancelled) setGateResults(null)
+      })
+      .finally(() => {
+        if (!cancelled) setCheckingGates(false)
+      })
+
+    return () => { cancelled = true }
+  }, [activeAddress, gateConfig, networkId, hasSigned])
+
+  const gatesPassed = !gateConfig || !gateResults || gateResults.every((r) => r.passed)
 
   const handleSign = async () => {
     if (!activeAddress || !transactionSigner || !opinion) return
@@ -215,6 +256,45 @@ export function ViewOpinion({ appId, networkId }: ViewOpinionProps) {
       setError(msg)
     } finally {
       setFinalizing(false)
+    }
+  }
+
+  const isAuthor = activeAddress && opinion?.author === activeAddress
+
+  const handleExtend = async () => {
+    if (!activeAddress || !transactionSigner || !opinion) return
+
+    setExtending(true)
+    setError(null)
+
+    const toastId = addToast('Approve the extend transaction in your wallet', 'loading')
+
+    try {
+      const algorand = getAlgorandClient(networkId)
+      algorand.setSigner(activeAddress, transactionSigner)
+
+      const appClient = algorand.client.getTypedAppClientById(SignZeroClient, {
+        appId,
+        defaultSender: activeAddress,
+      })
+
+      const roundsPerDay = Math.floor((24 * 60 * 60) / 3.3)
+      const additionalRounds = BigInt(extendDays * roundsPerDay)
+      const newEndRound = opinion.endRound + additionalRounds
+
+      await appClient.send.extend({
+        args: { newEndRound },
+      })
+
+      updateToast(toastId, `Opinion extended by ${extendDays} day${extendDays > 1 ? 's' : ''}!`, 'success')
+      await loadOpinion()
+    } catch (err) {
+      console.error('Error extending opinion:', err)
+      const msg = err instanceof Error ? err.message : 'Failed to extend opinion'
+      updateToast(toastId, msg, 'error')
+      setError(msg)
+    } finally {
+      setExtending(false)
     }
   }
 
@@ -340,6 +420,43 @@ export function ViewOpinion({ appId, networkId }: ViewOpinionProps) {
         <p className="text-[var(--text-content)] whitespace-pre-wrap">{opinion.text}</p>
       </div>
 
+      {/* Gate Requirements */}
+      {gateConfig && (
+        <div className="bg-[var(--bg-card)] border border-[var(--border)] p-6 mb-4">
+          <h3 className="font-semibold mb-3">Signer Requirements</h3>
+          <div className="flex flex-wrap gap-2 mb-3">
+            {getGateLabels(gateConfig).map((label, i) => (
+              <span key={i} className="px-3 py-1 bg-[var(--bg-surface)] border border-[var(--accent-yellow)] text-[var(--accent-yellow)] text-sm">
+                {label}
+              </span>
+            ))}
+          </div>
+
+          {/* Gate check results when wallet connected */}
+          {activeAddress && !hasSigned && isActive && (
+            checkingGates ? (
+              <p className="text-sm text-[var(--text-secondary)]">Checking eligibility...</p>
+            ) : gateResults && (
+              <div className="space-y-1 mt-2">
+                {gateResults.map((result, i) => (
+                  <div key={i} className="flex items-center gap-2 text-sm">
+                    <span className={result.passed ? 'text-[var(--accent-green)]' : 'text-[var(--accent-red)]'}>
+                      {result.passed ? '\u2713' : '\u2717'}
+                    </span>
+                    <span className={result.passed ? 'text-[var(--text-primary)]' : 'text-[var(--accent-red)]'}>
+                      {result.gate}
+                    </span>
+                    <span className="text-[var(--text-secondary)]">
+                      — {result.detail}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+        </div>
+      )}
+
       {/* Actions */}
       {error && (
         <div className="bg-[var(--bg-surface)] border border-[var(--accent-red)] p-4 text-[var(--accent-red)] mb-4">
@@ -358,10 +475,10 @@ export function ViewOpinion({ appId, networkId }: ViewOpinionProps) {
       ) : isActive ? (
         <button
           onClick={handleSign}
-          disabled={signing}
+          disabled={signing || checkingGates || !gatesPassed}
           className="w-full py-4 bg-[var(--bg-accent)] text-[var(--text-inverse)] hover:bg-[var(--accent-green)] disabled:bg-[var(--bg-disabled)] disabled:text-[var(--text-secondary)] disabled:cursor-not-allowed font-medium text-lg transition-colors"
         >
-          {signing ? 'Signing...' : 'Sign'}
+          {signing ? 'Signing...' : checkingGates ? 'Checking eligibility...' : !gatesPassed ? 'Requirements not met' : 'Sign'}
         </button>
       ) : canFinalize ? (
         <button
@@ -374,6 +491,36 @@ export function ViewOpinion({ appId, networkId }: ViewOpinionProps) {
       ) : (
         <div className="bg-[var(--bg-card)] border border-[var(--border)] p-6 text-center">
           <p className="text-[var(--text-secondary)]">This opinion has ended and been finalized</p>
+        </div>
+      )}
+
+      {/* Extend Duration (author only) */}
+      {isAuthor && isActive && (
+        <div className="bg-[var(--bg-card)] border border-[var(--border)] p-6 mt-4">
+          <h3 className="font-medium mb-3">Extend Duration</h3>
+          <div className="flex items-end gap-3">
+            <div className="flex-1">
+              <label className="block text-sm text-[var(--text-secondary)] mb-1">Additional days</label>
+              <input
+                type="number"
+                value={extendDays}
+                onChange={(e) => setExtendDays(Math.max(1, parseInt(e.target.value) || 1))}
+                min={1}
+                max={365}
+                className="w-full px-3 py-2 bg-[var(--bg-surface)] border border-[var(--border)] focus:outline-none focus:border-[var(--accent-green)]"
+              />
+            </div>
+            <button
+              onClick={handleExtend}
+              disabled={extending}
+              className="px-6 py-2 bg-[var(--accent-cyan)] text-[var(--text-inverse)] hover:bg-[var(--accent-blue)] disabled:bg-[var(--bg-disabled)] disabled:text-[var(--text-secondary)] disabled:cursor-not-allowed transition-colors"
+            >
+              {extending ? 'Extending...' : 'Extend'}
+            </button>
+          </div>
+          <p className="text-xs text-[var(--text-secondary)] mt-2">
+            +{Math.floor((extendDays * 24 * 60 * 60) / 3.3).toLocaleString()} rounds
+          </p>
         </div>
       )}
 

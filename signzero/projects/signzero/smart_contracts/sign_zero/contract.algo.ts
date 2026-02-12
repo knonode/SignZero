@@ -28,8 +28,19 @@ export class SignZero extends Contract {
   asaId = GlobalState<uint64>({ key: 'asa' })
   initialized = GlobalState<boolean>({ key: 'init' })
 
+  // Gate global state
+  gFlags = GlobalState<uint64>({ key: 'gf' })      // bitfield: bit0=asaHold, bit1=asaDeny, bit2=balMin, bit3=balMax, bit4=online, bit5=age, bit6=nfd
+  gBalMin = GlobalState<uint64>({ key: 'gbmin' })   // min ALGO balance (microAlgos)
+  gBalMax = GlobalState<uint64>({ key: 'gbmax' })   // max ALGO balance (microAlgos)
+  gMinAge = GlobalState<uint64>({ key: 'gage' })    // min account age in rounds
+
   // Box storage for opinion text
   opinionText = Box<string>({ key: 'text' })
+
+  // Gate box storage
+  gateHold = Box<bytes>({ key: 'gate_hold' })  // packed uint64[] ASA IDs signer must hold
+  gateDeny = Box<bytes>({ key: 'gate_deny' })  // packed uint64[] ASA IDs signer must NOT hold
+  gateNfd = Box<string>({ key: 'gate_nfd' })   // NFD root name (e.g., "dao.algo")
 
   /**
    * Creates the application (empty state)
@@ -130,6 +141,63 @@ export class SignZero extends Contract {
 
     // Write chunk into box (AVM validates bounds automatically)
     this.opinionText.replace(offset, data)
+  }
+
+  /**
+   * Sets signer gate requirements (author only, callable once)
+   * Gates are frontend-enforced; the contract stores config for persistence/display.
+   * @param flags - Bitfield: bit0=asaHold, bit1=asaDeny, bit2=balMin, bit3=balMax, bit4=online, bit5=age, bit6=nfd
+   * @param balMin - Min ALGO balance in microAlgos (used if bit2 set)
+   * @param balMax - Max ALGO balance in microAlgos (used if bit3 set)
+   * @param minAge - Min account age in rounds (used if bit5 set)
+   * @param asaHold - Packed uint64[] of ASA IDs signer must hold (used if bit0 set)
+   * @param asaDeny - Packed uint64[] of ASA IDs signer must NOT hold (used if bit1 set)
+   * @param nfdRoot - NFD root name e.g. "dao.algo" (used if bit6 set)
+   */
+  public setGates(flags: uint64, balMin: uint64, balMax: uint64, minAge: uint64, asaHold: bytes, asaDeny: bytes, nfdRoot: string): void {
+    assert(this.initialized.value, 'Not initialized')
+
+    // Only the author can set gates
+    assert(Txn.sender === Asset(this.asaId.value).reserve, 'Only author can set gates')
+
+    // Gates can only be set once (gFlags == 0 means unset)
+    assert(!this.gFlags.hasValue || this.gFlags.value === Uint64(0), 'Gates already set')
+
+    // Must set at least one gate
+    assert(flags > Uint64(0), 'Must enable at least one gate')
+
+    // Store flags
+    this.gFlags.value = flags
+
+    // Store scalar values based on flags
+    if (flags & Uint64(4)) {  // bit2 = balMin
+      this.gBalMin.value = balMin
+    }
+    if (flags & Uint64(8)) {  // bit3 = balMax
+      this.gBalMax.value = balMax
+    }
+    if (flags & Uint64(32)) {  // bit5 = age
+      this.gMinAge.value = minAge
+    }
+
+    // Create boxes based on flags
+    if (flags & Uint64(1)) {  // bit0 = asaHold
+      assert(asaHold.length > Uint64(0), 'asaHold cannot be empty')
+      assert(asaHold.length % Uint64(8) === Uint64(0), 'asaHold must be N*8 bytes')
+      this.gateHold.create({ size: asaHold.length })
+      this.gateHold.replace(0, asaHold)
+    }
+    if (flags & Uint64(2)) {  // bit1 = asaDeny
+      assert(asaDeny.length > Uint64(0), 'asaDeny cannot be empty')
+      assert(asaDeny.length % Uint64(8) === Uint64(0), 'asaDeny must be N*8 bytes')
+      this.gateDeny.create({ size: asaDeny.length })
+      this.gateDeny.replace(0, asaDeny)
+    }
+    if (flags & Uint64(64)) {  // bit6 = nfd
+      assert(nfdRoot !== '', 'nfdRoot cannot be empty')
+      this.gateNfd.create({ size: Bytes(nfdRoot).length })
+      this.gateNfd.replace(0, Bytes(nfdRoot))
+    }
   }
 
   /**
