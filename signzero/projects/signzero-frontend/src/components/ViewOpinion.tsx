@@ -6,6 +6,7 @@ import { SignZeroClient } from '../contracts/SignZeroClient'
 import { lookupNFD, truncateAddress } from '../utils/nfd'
 import { decodeOpinionType, parseGlobalState, isSignZeroOpinion } from '../utils/signzero'
 import { useToast } from './Toast'
+import { getApplicationAddress } from 'algosdk'
 import { microAlgo } from '@algorandfoundation/algokit-utils'
 import { readGateConfig, checkAllGates, getGateLabels } from '../utils/gates'
 import type { GateConfig, GateCheckResult } from '../utils/gates'
@@ -29,6 +30,8 @@ interface OpinionInfo {
   authorNfd: string | null
   signatureCount: number
   currentRound: bigint
+  appBalance: bigint
+  appMinBalance: bigint
 }
 
 export function ViewOpinion({ appId, networkId }: ViewOpinionProps) {
@@ -112,6 +115,18 @@ export function ViewOpinion({ appId, networkId }: ViewOpinionProps) {
         // Indexer might not be available
       }
 
+      // Fetch app account balance for reclaim display
+      let appBalance = 0n
+      let appMinBalance = 0n
+      try {
+        const appAddress = getApplicationAddress(appId).toString()
+        const appAccountInfo = await algorand.client.algod.accountInformation(appAddress).do()
+        appBalance = BigInt(appAccountInfo.amount)
+        appMinBalance = BigInt(appAccountInfo.minBalance)
+      } catch {
+        // App account may not exist yet
+      }
+
       if (activeAddress) {
         try {
           const accountInfo = await algorand.account.getInformation(activeAddress)
@@ -135,6 +150,8 @@ export function ViewOpinion({ appId, networkId }: ViewOpinionProps) {
         authorNfd: authorNfdResult?.name || null,
         signatureCount,
         currentRound,
+        appBalance,
+        appMinBalance,
       })
 
       // Load gate config
@@ -382,12 +399,32 @@ export function ViewOpinion({ appId, networkId }: ViewOpinionProps) {
           </div>
           <div className="text-sm text-[var(--text-secondary)]">Signatures</div>
         </div>
-        <div className="bg-[var(--bg-card)] border border-[var(--border)] p-4 text-center">
-          <div className="text-2xl font-bold">
-            {isActive ? `${daysRemaining}d ${hoursRemaining}h` : '--'}
+        {canFinalize ? (
+          <button
+            onClick={handleFinalize}
+            disabled={finalizing}
+            className="bg-[var(--bg-card)] border border-[var(--accent-cyan)] p-4 text-center hover:bg-[var(--bg-surface)] transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <div className="text-2xl font-bold text-[var(--accent-cyan)]">
+              {((Number(opinion.appBalance - opinion.appMinBalance)) / 1_000_000).toFixed(2)} A
+            </div>
+            <div className="text-sm text-[var(--accent-cyan)]">
+              {finalizing ? 'Finalizing...' : 'Reclaim'}
+            </div>
+          </button>
+        ) : opinion.finalized ? (
+          <div className="bg-[var(--bg-card)] border border-[var(--border)] p-4 text-center">
+            <div className="text-2xl font-bold text-[var(--text-secondary)]">Finalized</div>
+            <div className="text-sm text-[var(--text-secondary)]">Reclaimed</div>
           </div>
-          <div className="text-sm text-[var(--text-secondary)]">Time Remaining</div>
-        </div>
+        ) : (
+          <div className="bg-[var(--bg-card)] border border-[var(--border)] p-4 text-center">
+            <div className="text-2xl font-bold">
+              {`${daysRemaining}d ${hoursRemaining}h`}
+            </div>
+            <div className="text-sm text-[var(--text-secondary)]">Time Remaining</div>
+          </div>
+        )}
         {networkId === 'mainnet' || networkId === 'testnet' ? (
           <a
             href={networkId === 'mainnet'
@@ -481,13 +518,9 @@ export function ViewOpinion({ appId, networkId }: ViewOpinionProps) {
           {signing ? 'Signing...' : checkingGates ? 'Checking eligibility...' : !gatesPassed ? 'Requirements not met' : 'Sign'}
         </button>
       ) : canFinalize ? (
-        <button
-          onClick={handleFinalize}
-          disabled={finalizing}
-          className="w-full py-4 bg-[var(--accent-cyan)] text-[var(--text-inverse)] hover:bg-[var(--bg-accent)] disabled:bg-[var(--bg-disabled)] disabled:text-[var(--text-secondary)] disabled:cursor-not-allowed font-medium text-lg transition-colors"
-        >
-          {finalizing ? 'Finalizing...' : 'Finalize (Claim Reward)'}
-        </button>
+        <div className="bg-[var(--bg-card)] border border-[var(--border)] p-6 text-center">
+          <p className="text-[var(--text-secondary)]">This opinion has ended — use the Reclaim card above to finalize</p>
+        </div>
       ) : (
         <div className="bg-[var(--bg-card)] border border-[var(--border)] p-6 text-center">
           <p className="text-[var(--text-secondary)]">This opinion has ended and been finalized</p>
