@@ -12,7 +12,7 @@ const MIN_ROUND: Record<string, number> = {
 
 interface OpinionListProps {
   networkId: NetworkId
-  onViewOpinion: (appId: bigint) => void
+  onViewOpinion: (appId: bigint, title: string) => void
   authorFilter?: string | null
 }
 
@@ -295,7 +295,7 @@ export function OpinionList({ networkId, onViewOpinion, authorFilter }: OpinionL
       {pageOpinions.map((opinion) => (
         <button
           key={opinion.appId.toString()}
-          onClick={() => onViewOpinion(opinion.appId)}
+          onClick={() => onViewOpinion(opinion.appId, opinion.title)}
           className="w-full p-4 bg-[var(--bg-card)] border border-[var(--border)] hover:border-[var(--accent-green)] hover:bg-[var(--bg-surface)] transition-all text-left flex items-center gap-4"
         >
           <div className="flex-1 min-w-0">

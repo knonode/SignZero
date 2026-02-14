@@ -10,6 +10,7 @@ import { getApplicationAddress } from 'algosdk'
 import { microAlgo } from '@algorandfoundation/algokit-utils'
 import { readGateConfig, checkAllGates, getGateLabels } from '../utils/gates'
 import type { GateConfig, GateCheckResult } from '../utils/gates'
+import { buildOpinionPath } from '../utils/router'
 
 interface ViewOpinionProps {
   appId: bigint
@@ -153,6 +154,13 @@ export function ViewOpinion({ appId, networkId }: ViewOpinionProps) {
         appBalance,
         appMinBalance,
       })
+
+      // Fix URL slug and set document title
+      const expectedPath = buildOpinionPath(appId, title)
+      if (window.location.pathname !== expectedPath) {
+        window.history.replaceState({}, '', expectedPath)
+      }
+      document.title = `${title} - SignZero`
 
       // Load gate config
       try {

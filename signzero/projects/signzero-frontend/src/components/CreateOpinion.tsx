@@ -28,7 +28,7 @@ const OPINION_TYPES = [
 
 interface CreateOpinionProps {
   networkId: NetworkId
-  onCreated: (appId: bigint) => void
+  onCreated: (appId: bigint, title: string) => void
 }
 
 export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
@@ -193,7 +193,7 @@ export function CreateOpinion({ networkId, onCreated }: CreateOpinionProps) {
       }
 
       updateToast(toastId, 'Opinion created successfully!', 'success')
-      onCreated(result.appId)
+      onCreated(result.appId, title)
     } catch (err) {
       console.error('Error creating opinion:', err)
       const msg = err instanceof Error ? err.message : 'Failed to create opinion'

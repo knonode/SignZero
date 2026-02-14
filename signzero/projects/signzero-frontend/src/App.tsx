@@ -8,6 +8,8 @@ import { OpinionList } from './components/OpinionList'
 import { useTheme } from './ThemeContext'
 import { resolveAsaToAppId } from './utils/signzero'
 import { resolveNFDName, truncateAddress } from './utils/nfd'
+import { useRoute } from './hooks/useRoute'
+import { navigate, buildOpinionPath } from './utils/router'
 import type { NetworkId } from './utils/algorand'
 
 const NETWORKS: NetworkId[] = ['localnet', 'testnet', 'mainnet']
@@ -23,7 +25,6 @@ function toWalletNetworkId(id: NetworkId): WalletNetworkId {
   }
 }
 
-type View = 'home' | 'create' | 'view'
 type LookupMode = 'appId' | 'asaId' | 'author'
 
 const LOOKUP_MODES: { mode: LookupMode; label: string }[] = [
@@ -36,11 +37,10 @@ function App() {
   const { activeAddress, activeWallet } = useWallet()
   const { activeNetwork, setActiveNetwork } = useNetwork()
   const { theme, toggleTheme } = useTheme()
+  const route = useRoute()
   const [networkId, setNetworkId] = useState<NetworkId>(
     (activeNetwork || import.meta.env.VITE_NETWORK || 'localnet') as NetworkId
   )
-  const [view, setView] = useState<View>('home')
-  const [viewAppId, setViewAppId] = useState<bigint | null>(null)
   const [listKey, setListKey] = useState(0)
 
   // Lookup state
@@ -58,19 +58,18 @@ function App() {
     }
     setActiveNetwork(toWalletNetworkId(network))
     setNetworkId(network)
-    setView('home')
+    navigate('/')
     setListKey((k) => k + 1)
     clearAuthorFilter()
   }
 
-  const handleViewOpinion = (appId: bigint) => {
-    setViewAppId(appId)
-    setView('view')
+  const handleViewOpinion = (appId: bigint, title: string) => {
+    navigate(buildOpinionPath(appId, title))
   }
 
-  const handleOpinionCreated = useCallback((appId: bigint) => {
+  const handleOpinionCreated = useCallback((appId: bigint, title: string) => {
     setListKey((k) => k + 1)
-    handleViewOpinion(appId)
+    handleViewOpinion(appId, title)
   }, [])
 
   const clearAuthorFilter = () => {
@@ -86,7 +85,7 @@ function App() {
 
     if (lookupMode === 'appId') {
       try {
-        handleViewOpinion(BigInt(val))
+        navigate(`/${BigInt(val)}`)
       } catch {
         setLookupError('Invalid App ID')
       }
@@ -98,7 +97,7 @@ function App() {
       try {
         const appId = await resolveAsaToAppId(BigInt(val), networkId)
         if (appId) {
-          handleViewOpinion(appId)
+          navigate(`/${appId}`)
         } else {
           setLookupError('No SignZero opinion found with this ASA ID')
         }
@@ -148,7 +147,7 @@ function App() {
       <header className="border-b border-[var(--border)] bg-[var(--bg-header)] backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <button
-            onClick={() => setView('home')}
+            onClick={() => navigate('/')}
             className="flex items-center gap-3 hover:opacity-80 transition-opacity"
           >
             <img src="/android-chrome-192x192.png" alt="SignZero" className="w-10 h-10" />
@@ -206,7 +205,7 @@ function App() {
 
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 py-8">
-        {view === 'home' && (
+        {route.view === 'home' && (
           <div className="space-y-6">
             {/* Hero */}
             <div className="text-center py-6">
@@ -221,7 +220,7 @@ function App() {
             {/* Action Cards */}
             <div className="grid grid-cols-2 gap-4 max-w-2xl mx-auto">
               <button
-                onClick={() => setView('create')}
+                onClick={() => navigate('/create')}
                 disabled={!activeAddress}
                 className="p-4 bg-[var(--bg-card)] border border-[var(--border)] hover:border-[var(--accent-green)] hover:bg-[var(--bg-surface)] transition-all group disabled:opacity-50 disabled:cursor-not-allowed text-left"
               >
@@ -356,10 +355,10 @@ function App() {
           </div>
         )}
 
-        {view === 'create' && (
+        {route.view === 'create' && (
           <div>
             <button
-              onClick={() => setView('home')}
+              onClick={() => navigate('/')}
               className="mb-6 text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-2"
             >
               &lt;- Back
@@ -371,15 +370,15 @@ function App() {
           </div>
         )}
 
-        {view === 'view' && viewAppId && (
+        {route.view === 'view' && (
           <div>
             <button
-              onClick={() => setView('home')}
+              onClick={() => navigate('/')}
               className="mb-6 text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-2"
             >
               &lt;- Back
             </button>
-            <ViewOpinion appId={viewAppId} networkId={networkId} />
+            <ViewOpinion appId={route.appId} networkId={networkId} />
           </div>
         )}
       </main>
