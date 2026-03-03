@@ -296,11 +296,11 @@ export function OpinionList({ networkId, onViewOpinion, authorFilter }: OpinionL
         <button
           key={opinion.appId.toString()}
           onClick={() => onViewOpinion(opinion.appId, opinion.title)}
-          className="w-full p-4 bg-[var(--bg-card)] border border-[var(--border)] hover:border-[var(--accent-green)] hover:bg-[var(--bg-surface)] transition-all text-left flex items-center gap-4"
+          className="w-full p-3 sm:p-4 bg-[var(--bg-card)] border border-[var(--border)] hover:border-[var(--accent-green)] hover:bg-[var(--bg-surface)] transition-all text-left flex items-center gap-3 sm:gap-4"
         >
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-medium truncate">{opinion.title}</h3>
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1">
+              <h3 className="font-medium truncate text-sm sm:text-base">{opinion.title}</h3>
               {opinion.opinionType && (
                 <span className="px-2 py-0.5 border border-[var(--accent-blue)] text-[var(--accent-blue)] text-xs shrink-0">
                   {opinion.opinionType}
@@ -325,14 +325,14 @@ export function OpinionList({ networkId, onViewOpinion, authorFilter }: OpinionL
             </p>
           </div>
           <div className="text-right shrink-0">
-            <div className="text-xl font-bold text-[var(--accent-green)]">{opinion.signatureCount}</div>
-            <div className="text-xs text-[var(--text-secondary)]">signatures</div>
+            <div className="text-lg sm:text-xl font-bold text-[var(--accent-green)]">{opinion.signatureCount}</div>
+            <div className="text-[10px] sm:text-xs text-[var(--text-secondary)]">signatures</div>
           </div>
         </button>
       ))}
 
       {/* Pagination */}
-      <div className="flex items-center justify-between pt-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
         <div className="flex items-center gap-2">
           <span className="text-xs text-[var(--text-secondary)]">Show</span>
           {PAGE_SIZES.map((size) => (

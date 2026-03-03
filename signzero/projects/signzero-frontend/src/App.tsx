@@ -145,26 +145,26 @@ function App() {
     <div className="min-h-screen">
       {/* Header */}
       <header className="border-b border-[var(--border)] bg-[var(--bg-header)] backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 py-3 sm:py-4 flex items-center justify-between gap-2">
           <button
             onClick={() => navigate('/')}
-            className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+            className="flex items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity shrink-0"
           >
-            <img src="/android-chrome-192x192.png" alt="SignZero" className="w-10 h-10" />
-            <span className="text-xl font-bold text-[var(--text-primary)]">
+            <img src="/android-chrome-192x192.png" alt="SignZero" className="w-8 h-8 sm:w-10 sm:h-10" />
+            <span className="text-lg sm:text-xl font-bold text-[var(--text-primary)] hidden sm:inline">
               SignZero
             </span>
           </button>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
-              className="w-9 h-9 flex items-center justify-center border border-[var(--border)] hover:border-[var(--accent-green)] transition-colors"
+              className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center border border-[var(--border)] hover:border-[var(--accent-green)] transition-colors shrink-0"
               title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
             >
               {theme === 'dark' ? (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="5" />
                   <line x1="12" y1="1" x2="12" y2="3" />
                   <line x1="12" y1="21" x2="12" y2="23" />
@@ -176,7 +176,7 @@ function App() {
                   <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
                 </svg>
               ) : (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                 </svg>
               )}
@@ -188,7 +188,7 @@ function App() {
                 <button
                   key={net}
                   onClick={() => handleNetworkChange(net)}
-                  className={`px-3 py-1.5 text-xs uppercase tracking-wider transition-colors ${
+                  className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs uppercase tracking-wider transition-colors ${
                     networkId === net
                       ? 'bg-[var(--bg-accent)] text-[var(--text-inverse)] font-bold'
                       : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
@@ -204,12 +204,12 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 py-8">
+      <main className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
         {route.view === 'home' && (
           <div className="space-y-6">
             {/* Hero */}
-            <div className="text-center py-6">
-              <h1 className="text-3xl md:text-4xl font-bold mb-2 text-[var(--text-primary)]">
+            <div className="text-center py-4 sm:py-6">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 text-[var(--text-primary)]">
                 Decentralized Opinions
               </h1>
               <p className="text-[var(--text-secondary)] max-w-xl mx-auto">
@@ -218,7 +218,7 @@ function App() {
             </div>
 
             {/* Action Cards */}
-            <div className="grid grid-cols-2 gap-4 max-w-2xl mx-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 max-w-2xl mx-auto">
               <button
                 onClick={() => navigate('/create')}
                 disabled={!activeAddress}

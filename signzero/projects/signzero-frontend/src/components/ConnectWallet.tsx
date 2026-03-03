@@ -26,8 +26,8 @@ export function ConnectWallet() {
 
   if (activeAddress) {
     return (
-      <div className="flex items-center gap-3">
-        <div className="text-right">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <div className="text-right hidden sm:block">
           <div className="text-sm font-medium text-[var(--accent-green)]">
             {nfdName || truncateAddress(activeAddress, 6)}
           </div>
@@ -39,9 +39,10 @@ export function ConnectWallet() {
         </div>
         <button
           onClick={handleDisconnect}
-          className="px-3 py-2 text-sm bg-[var(--bg-hover)] hover:bg-[var(--bg-hover-strong)] transition-colors border border-[var(--border)]"
+          className="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm bg-[var(--bg-hover)] hover:bg-[var(--bg-hover-strong)] transition-colors border border-[var(--border)]"
         >
-          Disconnect
+          <span className="sm:hidden text-[var(--accent-green)]">{truncateAddress(activeAddress, 3)}</span>
+          <span className="hidden sm:inline">Disconnect</span>
         </button>
       </div>
     )
@@ -51,7 +52,7 @@ export function ConnectWallet() {
     <>
       <button
         onClick={() => setShowModal(true)}
-        className="px-4 py-2 bg-[var(--bg-accent)] text-[var(--text-inverse)] font-medium hover:bg-[var(--accent-green)] transition-colors"
+        className="px-3 sm:px-4 py-1.5 sm:py-2 text-sm bg-[var(--bg-accent)] text-[var(--text-inverse)] font-medium hover:bg-[var(--accent-green)] transition-colors"
       >
         Connect Wallet
       </button>
